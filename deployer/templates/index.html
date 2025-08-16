@@ -1,0 +1,3233 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deployer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, system-ui, sans-serif;
+            background: #0f0f0f;
+            color: #ffffff;
+            line-height: 1.5;
+            overflow-x: hidden;
+            margin: 0;
+            padding: 0;
+        }
+
+        .app-layout {
+            display: flex;
+            height: 100vh;
+            background: linear-gradient(135deg, #0f0f0f 0%, #1a1a1a 50%, #0f0f0f 100%);
+        }
+
+        .sidebar {
+            width: 300px;
+            background: rgba(255, 255, 255, 0.02);
+            backdrop-filter: blur(20px);
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            flex-direction: column;
+            transition: width 0.3s ease;
+        }
+
+        .sidebar.collapsed {
+            width: 60px;
+        }
+
+        .sidebar-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .sidebar.collapsed .sidebar-header {
+            padding: 1.5rem 0.75rem;
+            justify-content: center;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 600;
+            background: linear-gradient(135deg, #ffffff 0%, #888 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .sidebar.collapsed .logo {
+            display: none;
+        }
+
+        .sidebar-toggle {
+            background: none;
+            border: none;
+            color: #888;
+            font-size: 1.2rem;
+            cursor: pointer;
+            padding: 0.5rem;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+        }
+
+        .sidebar-toggle:hover {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .projects-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1rem 0;
+        }
+
+        .project-item {
+            padding: 0.75rem 1.5rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .sidebar.collapsed .project-item {
+            padding: 0.75rem;
+            justify-content: center;
+        }
+
+        .project-item:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .project-item.active {
+            background: rgba(99, 102, 241, 0.2);
+            border-right: 3px solid #6366f1;
+        }
+
+        .project-status {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .project-status.running {
+            background: #22c55e;
+            box-shadow: 0 0 8px rgba(34, 197, 94, 0.5);
+        }
+
+        .project-status.stopped {
+            background: #6b7280;
+        }
+
+        .project-info {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            min-width: 0;
+        }
+
+        .project-name {
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .sidebar.collapsed .project-info {
+            display: none;
+        }
+
+        .project-type-icon {
+            font-size: 0.7rem;
+            padding: 0.1rem 0.3rem;
+            border-radius: 3px;
+            font-weight: 500;
+            letter-spacing: 0.3px;
+            align-self: flex-start;
+        }
+
+        .project-type-icon.git {
+            background: rgba(99, 102, 241, 0.2);
+            color: #6366f1;
+            border: 1px solid rgba(99, 102, 241, 0.3);
+        }
+
+        .project-type-icon.local {
+            background: rgba(156, 163, 175, 0.2);
+            color: #9ca3af;
+            border: 1px solid rgba(156, 163, 175, 0.3);
+        }
+
+        .sidebar.collapsed .project-type-icon {
+            display: none;
+        }
+
+        .add-project-btn {
+            margin: 1rem;
+            padding: 0.75rem;
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .add-project-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(99, 102, 241, 0.3);
+        }
+
+        .sidebar.collapsed .add-project-btn {
+            margin: 1rem 0.5rem;
+        }
+
+        .sidebar.collapsed .add-project-text {
+            display: none;
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .content-header {
+            padding: 2rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .content-body {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .project-detail {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .project-header-section {
+            padding: 2rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .project-title-section {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .project-title-main {
+            font-size: 2rem;
+            font-weight: 600;
+            margin: 0;
+        }
+
+        .project-status-badge {
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .project-status-badge.running {
+            background: rgba(34, 197, 94, 0.2);
+            color: #22c55e;
+            border: 1px solid rgba(34, 197, 94, 0.3);
+        }
+
+        .project-status-badge.stopped {
+            background: rgba(156, 163, 175, 0.2);
+            color: #9ca3af;
+            border: 1px solid rgba(156, 163, 175, 0.3);
+        }
+
+        .project-info-grid {
+            margin-bottom: 1rem;
+        }
+
+        .project-status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 0.75rem;
+            padding: 1rem;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+        }
+
+        .status-item.available {
+            background: rgba(34, 197, 94, 0.05);
+            border: 1px solid rgba(34, 197, 94, 0.2);
+        }
+
+        .status-item.unavailable {
+            background: rgba(239, 68, 68, 0.05);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            opacity: 0.7;
+        }
+
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .status-item.available .status-indicator {
+            background: #22c55e;
+        }
+
+        .status-item.unavailable .status-indicator {
+            background: #ef4444;
+        }
+
+        .status-text {
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: #ccc;
+        }
+
+        .status-info {
+            grid-column: 1 / -1;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 4px;
+            margin-top: 0.5rem;
+        }
+
+        .info-label {
+            font-size: 0.8rem;
+            color: #888;
+        }
+
+        .info-value {
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: #ccc;
+        }
+
+        .info-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+        }
+
+        .info-icon {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .info-icon.success {
+            background: #22c55e;
+        }
+
+        .info-icon.error {
+            background: #ef4444;
+        }
+
+        .project-actions-section {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .action-button {
+            padding: 0.5rem 1rem;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.05);
+            color: #ffffff;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .action-button:hover:not(:disabled) {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+
+        .action-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .action-button.primary {
+            background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+            border-color: transparent;
+        }
+
+        .action-button.danger {
+            border-color: rgba(239, 68, 68, 0.3);
+            color: #ef4444;
+        }
+
+        .action-button.warning {
+            border-color: rgba(245, 158, 11, 0.3);
+            color: #f59e0b;
+        }
+
+        .action-button.secondary {
+            border-color: rgba(99, 102, 241, 0.3);
+            color: #6366f1;
+        }
+
+        .logs-section {
+            flex: 1;
+            padding: 1rem;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        .refresh-logs-btn {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            z-index: 10;
+            padding: 0.75rem 1.5rem;
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            border-radius: 8px;
+            background: rgba(99, 102, 241, 0.1);
+            color: #6366f1;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            backdrop-filter: blur(10px);
+            min-width: 120px;
+            text-align: center;
+        }
+
+        .refresh-logs-btn:hover {
+            background: rgba(99, 102, 241, 0.2);
+            border-color: rgba(99, 102, 241, 0.5);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+        }
+
+        .refresh-logs-btn:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 6px rgba(99, 102, 241, 0.2);
+        }
+
+        .realtime-indicator {
+            position: absolute;
+            top: 1rem;
+            left: 1rem;
+            z-index: 10;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            background: rgba(34, 197, 94, 0.1);
+            border: 1px solid rgba(34, 197, 94, 0.3);
+            color: #22c55e;
+            font-size: 0.8rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            backdrop-filter: blur(10px);
+        }
+
+        .realtime-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #22c55e;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .logs-container {
+            flex: 1;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            padding: 1rem;
+            overflow-y: auto;
+            overflow-x: hidden;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 0.9rem;
+            scroll-behavior: smooth;
+            max-height: calc(100vh - 400px);
+        }
+
+        .logs-container::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .logs-container::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+        }
+
+        .logs-container::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 4px;
+        }
+
+        .logs-container::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.5);
+        }
+
+        .log-entry-inline {
+            margin-bottom: 0.5rem;
+            padding: 0.5rem;
+            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .log-timestamp-inline {
+            color: #666;
+            font-size: 0.8rem;
+            margin-right: 1rem;
+        }
+
+        .log-message-inline {
+            color: #e0e0e0;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: #666;
+        }
+
+        .empty-state h3 {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            color: #888;
+        }
+
+        .add-project-modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            backdrop-filter: blur(10px);
+        }
+
+        .add-project-content {
+            background: #0f0f0f;
+            margin: 10% auto;
+            border-radius: 20px;
+            width: 90%;
+            max-width: 500px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            overflow: hidden;
+        }
+
+        .add-project-header {
+            background: rgba(255, 255, 255, 0.02);
+            padding: 1.5rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .add-project-body {
+            padding: 2rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #888;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            color: #ffffff;
+            font-size: 0.9rem;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: rgba(99, 102, 241, 0.5);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 250px;
+            }
+            
+            .sidebar.collapsed {
+                width: 50px;
+            }
+            
+            .project-info-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .stats-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+        }
+
+        .stats-number {
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+
+        .stats-label {
+            color: #888;
+            font-size: 0.9rem;
+        }
+
+        .stats-warning {
+            color: #f59e0b;
+        }
+
+        .stats-danger {
+            color: #ef4444;
+        }
+
+        .stats-success {
+            color: #22c55e;
+        }
+
+        .form-row {
+            display: flex;
+            gap: 1rem;
+            align-items: end;
+        }
+
+        .input-group {
+            flex: 1;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+            color: #888;
+            font-weight: 500;
+        }
+
+        input[type="text"], input[type="url"] {
+            width: 100%;
+            padding: 1rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            color: #ffffff;
+            font-size: 0.95rem;
+            transition: all 0.3s ease;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: rgba(99, 102, 241, 0.5);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        input::placeholder {
+            color: #555;
+        }
+
+        .btn {
+            padding: 1rem 2rem;
+            border: none;
+            border-radius: 12px;
+            font-weight: 500;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            color: white;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(99, 102, 241, 0.3);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .projects-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+            gap: 2rem;
+        }
+
+        .project-card {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 0;
+            backdrop-filter: blur(20px);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            overflow: hidden;
+        }
+
+        .project-card:hover {
+            transform: translateY(-4px);
+            border-color: rgba(255, 255, 255, 0.2);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .project-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            position: relative;
+        }
+
+        .project-title {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .project-menu {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            z-index: 10;
+        }
+
+        .menu-button {
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            border-radius: 50%;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            color: #888;
+        }
+
+        .menu-button:hover {
+            background: rgba(255, 255, 255, 0.2);
+            color: #fff;
+        }
+
+        .menu-dropdown {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background: rgba(20, 20, 20, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            min-width: 200px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(20px);
+            display: none;
+            z-index: 20;
+            margin-top: 0.5rem;
+        }
+
+        .menu-dropdown.show {
+            display: block;
+        }
+
+        .menu-item {
+            padding: 0.75rem 1rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .menu-item:last-child {
+            border-bottom: none;
+        }
+
+        .menu-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .menu-item.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .menu-item.disabled:hover {
+            background: transparent;
+        }
+
+        .project-name {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: #ffffff;
+        }
+
+        .status-badge {
+            padding: 0.4rem 1rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .status-running {
+            background: rgba(34, 197, 94, 0.2);
+            color: #22c55e;
+            border: 1px solid rgba(34, 197, 94, 0.3);
+        }
+
+        .status-stopped {
+            background: rgba(156, 163, 175, 0.2);
+            color: #9ca3af;
+            border: 1px solid rgba(156, 163, 175, 0.3);
+        }
+
+        .project-meta {
+            display: flex;
+            gap: 1rem;
+            font-size: 0.85rem;
+            color: #888;
+        }
+
+        .meta-item {
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+
+        .indicator {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+        }
+
+        .indicator.success {
+            background: #22c55e;
+        }
+
+        .indicator.error {
+            background: #ef4444;
+        }
+
+        .logs-preview {
+            padding: 1rem 1.5rem;
+            background: rgba(0, 0, 0, 0.3);
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 0.8rem;
+            min-height: 80px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .log-line {
+            margin-bottom: 0.3rem;
+            color: #aaa;
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .log-time {
+            color: #555;
+            min-width: 60px;
+        }
+
+        .log-text {
+            color: #ccc;
+        }
+
+        .no-logs {
+            color: #555;
+            text-align: center;
+            line-height: 60px;
+            font-style: italic;
+        }
+
+        .project-actions {
+            padding: 0.75rem 1rem;
+            display: flex;
+            gap: 0.6rem;
+            flex-wrap: wrap;
+        }
+
+        .action-btn {
+            padding: 0.5rem 1rem;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            color: #ffffff;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+
+        .action-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+
+        .action-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .action-btn.success {
+            border-color: rgba(34, 197, 94, 0.3);
+            color: #22c55e;
+        }
+
+        .action-btn.danger {
+            border-color: rgba(239, 68, 68, 0.3);
+            color: #ef4444;
+        }
+
+        .action-btn.warning {
+            border-color: rgba(245, 158, 11, 0.3);
+            color: #f59e0b;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            backdrop-filter: blur(10px);
+        }
+
+        .logs-modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            backdrop-filter: blur(10px);
+        }
+
+        .env-modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            backdrop-filter: blur(10px);
+            overflow-y: auto;
+        }
+
+        .env-content {
+            background: #0f0f0f;
+            margin: 2% auto;
+            border-radius: 20px;
+            width: 90%;
+            max-width: 600px;
+            min-height: 80vh;
+            max-height: 90vh;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .env-header {
+            background: rgba(255, 255, 255, 0.02);
+            padding: 1.5rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .env-body {
+            padding: 2rem;
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .env-body::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .env-body::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+        }
+
+        .env-body::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 4px;
+        }
+
+        .env-body::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.5);
+        }
+
+        .env-section {
+            margin-bottom: 1.5rem;
+        }
+
+        .env-section h4 {
+            margin-bottom: 0.75rem;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #ccc;
+        }
+
+        .env-status-card.compact {
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .status-indicator.compact {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 0;
+        }
+
+        .status-indicator.compact span {
+            font-size: 0.85rem;
+            color: #ccc;
+        }
+
+        .env-actions.compact {
+            margin-top: 0.75rem;
+            gap: 0.5rem;
+        }
+
+        .env-btn.small {
+            padding: 0.4rem 0.8rem;
+            font-size: 0.8rem;
+            min-width: auto;
+        }
+
+        .toggle-label {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: #ccc;
+            cursor: pointer;
+        }
+
+        .toggle-label input[type="checkbox"] {
+            accent-color: #6366f1;
+        }
+
+        .compact-inputs {
+            display: flex;
+            gap: 1rem;
+            margin-top: 0.75rem;
+        }
+
+        .input-group {
+            flex: 1;
+        }
+
+        .input-group label {
+            display: block;
+            font-size: 0.75rem;
+            color: #888;
+            margin-bottom: 0.25rem;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 0.4rem;
+            border-radius: 4px;
+            border: 1px solid rgba(255,255,255,0.2);
+            background: rgba(255,255,255,0.05);
+            color: #fff;
+            font-size: 0.8rem;
+        }
+
+        .automation-toggles {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .env-footer {
+            margin-top: 1.5rem;
+            padding-top: 1rem;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            text-align: right;
+        }
+
+        /* New Settings Modal Styles */
+        .settings-section {
+            margin-bottom: 1.5rem;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            padding-bottom: 1rem;
+        }
+
+        .settings-section:last-of-type {
+            border-bottom: none;
+        }
+
+        .settings-section h4 {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #e5e7eb;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .settings-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem;
+            background: rgba(255,255,255,0.03);
+            border-radius: 6px;
+            border: 1px solid rgba(255,255,255,0.08);
+        }
+
+        .setting-info {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .setting-label {
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: #f3f4f6;
+        }
+
+        .setting-status {
+            font-size: 0.8rem;
+            color: #9ca3af;
+        }
+
+        .setting-actions {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
+        .settings-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .form-group label {
+            font-size: 0.8rem;
+            color: #9ca3af;
+            font-weight: 500;
+        }
+
+        .form-control {
+            padding: 0.5rem;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 4px;
+            background: rgba(255,255,255,0.05);
+            color: #f3f4f6;
+            font-size: 0.9rem;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: #6366f1;
+            box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+        }
+
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-sm {
+            padding: 0.4rem 0.8rem;
+            font-size: 0.8rem;
+        }
+
+        .btn-primary {
+            background: #6366f1;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5046e4;
+        }
+
+        .btn-secondary {
+            background: rgba(255,255,255,0.1);
+            color: #f3f4f6;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255,255,255,0.15);
+        }
+
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+
+        /* Custom Switch */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 44px;
+            height: 24px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(255,255,255,0.2);
+            transition: 0.3s;
+            border-radius: 24px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: 0.3s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: #6366f1;
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(20px);
+        }
+
+        /* Custom Checkbox */
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            cursor: pointer;
+            font-size: 0.9rem;
+            color: #f3f4f6;
+        }
+
+        .checkmark {
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 3px;
+            position: relative;
+            transition: all 0.2s ease;
+        }
+
+        .checkbox-label input {
+            display: none;
+        }
+
+        .checkbox-label input:checked + .checkmark {
+            background: #6366f1;
+            border-color: #6366f1;
+        }
+
+        .checkbox-label input:checked + .checkmark:after {
+            content: "";
+            position: absolute;
+            left: 4px;
+            top: 1px;
+            width: 4px;
+            height: 8px;
+            border: solid white;
+            border-width: 0 2px 2px 0;
+            transform: rotate(45deg);
+        }
+
+        .settings-footer {
+            margin-top: 2rem;
+            padding-top: 1rem;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            text-align: right;
+        }
+
+        .env-section h4 {
+            margin-bottom: 1rem;
+            color: #ffffff;
+            font-size: 1.1rem;
+            font-weight: 500;
+        }
+
+        .env-status-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 1.5rem;
+            transition: all 0.2s ease;
+        }
+
+        .env-status-card:hover {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .status-dot.success {
+            background: #22c55e;
+            box-shadow: 0 0 8px rgba(34, 197, 94, 0.3);
+        }
+
+        .status-dot.error {
+            background: #ef4444;
+            box-shadow: 0 0 8px rgba(239, 68, 68, 0.3);
+        }
+
+        .status-info {
+            flex: 1;
+        }
+
+        .status-title {
+            font-weight: 500;
+            color: #ffffff;
+            margin-bottom: 0.25rem;
+        }
+
+        .status-description {
+            font-size: 0.9rem;
+            color: #888;
+        }
+
+        .env-actions {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .env-btn {
+            padding: 0.5rem 1rem;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            color: #ffffff;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .env-btn:hover:not(:disabled) {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+
+        .env-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .env-btn.primary {
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            border-color: transparent;
+        }
+
+        .env-btn.danger {
+            border-color: rgba(239, 68, 68, 0.3);
+            color: #ef4444;
+        }
+
+        .files-modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            backdrop-filter: blur(10px);
+        }
+
+        .files-content {
+            background: #0f0f0f;
+            margin: 3% auto;
+            border-radius: 20px;
+            width: 90%;
+            max-width: 1000px;
+            height: 85%;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            overflow: hidden;
+        }
+
+        .files-header {
+            background: rgba(255, 255, 255, 0.02);
+            padding: 1.5rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .files-stats {
+            display: flex;
+            gap: 2rem;
+            font-size: 0.9rem;
+            color: #888;
+        }
+
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .files-body {
+            flex: 1;
+            padding: 1.5rem;
+            overflow-y: auto;
+            background: #0a0a0a;
+        }
+
+        .file-tree {
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 0.9rem;
+        }
+
+        .tree-item {
+            display: flex;
+            align-items: center;
+            padding: 0.3rem 0;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: background 0.2s;
+        }
+
+        .tree-item:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .tree-indent {
+            margin-left: 1.5rem;
+        }
+
+        .tree-icon {
+            margin-right: 0.5rem;
+            width: 1rem;
+            text-align: center;
+        }
+
+        .tree-name {
+            flex: 1;
+            color: #e0e0e0;
+        }
+
+        .tree-size {
+            color: #666;
+            font-size: 0.8rem;
+            margin-left: 1rem;
+        }
+
+        .tree-issues {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-left: 1rem;
+        }
+
+        .issue-badge {
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+            padding: 0.2rem 0.5rem;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        .file-directory {
+            color: #6366f1;
+            font-weight: 500;
+        }
+
+        .file-python {
+            color: #22c55e;
+        }
+
+        .file-config {
+            color: #f59e0b;
+        }
+
+        .file-text {
+            color: #8b5cf6;
+        }
+
+        .file-unknown {
+            color: #9ca3af;
+        }
+
+        .expandable {
+            cursor: pointer;
+        }
+
+        .expandable.collapsed .tree-children {
+            display: none;
+        }
+
+        .expandable.collapsed .tree-icon::before {
+            content: '▶';
+        }
+
+        .expandable.expanded .tree-icon::before {
+            content: '▼';
+        }
+
+        .tree-children {
+            margin-left: 1rem;
+        }
+
+
+        .loading-spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top: 2px solid #fff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 0.5rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .logs-content {
+            background: #0f0f0f;
+            margin: 3% auto;
+            border-radius: 20px;
+            width: 95%;
+            height: 90%;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            overflow: hidden;
+        }
+
+        .logs-header {
+            background: rgba(255, 255, 255, 0.02);
+            padding: 1.5rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logs-body {
+            flex: 1;
+            padding: 1.5rem;
+            overflow-y: auto;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            background: #000;
+            font-size: 0.9rem;
+        }
+
+        .log-entry {
+            margin-bottom: 0.5rem;
+            padding: 0.5rem;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .log-timestamp {
+            color: #666;
+            font-size: 0.8rem;
+            margin-right: 1rem;
+        }
+
+        .log-message {
+            color: #e0e0e0;
+        }
+
+        .close {
+            color: #888;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 0.5rem;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+        }
+
+        .close:hover {
+            color: white;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .alert {
+            position: fixed;
+            top: 2rem;
+            right: 2rem;
+            z-index: 9999;
+            padding: 1rem 1.5rem;
+            border-radius: 12px;
+            display: none;
+            backdrop-filter: blur(20px);
+            min-width: 300px;
+            max-width: 500px;
+            transform: translateX(100%);
+            transition: all 0.3s ease;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .alert.show {
+            display: block;
+            transform: translateX(0);
+        }
+
+        .alert-success {
+            background: rgba(34, 197, 94, 0.1);
+            color: #22c55e;
+            border: 1px solid rgba(34, 197, 94, 0.2);
+        }
+
+        .alert-error {
+            background: rgba(239, 68, 68, 0.1);
+            color: #ef4444;
+            border: 1px solid rgba(239, 68, 68, 0.2);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: #666;
+        }
+
+        .empty-state h3 {
+            font-size: 1.2rem;
+            margin-bottom: 0.5rem;
+            color: #888;
+        }
+
+        @media (max-width: 768px) {
+            .projects-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .form-row {
+                flex-direction: column;
+            }
+            
+            .container {
+                padding: 2rem 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-layout">
+        <!-- Barra Lateral -->
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">Deployer</div>
+                <button class="sidebar-toggle" onclick="toggleSidebar()">☰</button>
+            </div>
+            
+            <div class="projects-list" id="projectsList">
+                <!-- Los proyectos se cargarán aquí dinámicamente -->
+            </div>
+            
+            <button class="add-project-btn" onclick="openAddProjectModal()">
+                <span>+</span>
+                <span class="add-project-text">Añadir Proyecto</span>
+            </button>
+        </div>
+
+        <!-- Contenido Principal -->
+        <div class="main-content">
+            <div id="emptyState" class="empty-state">
+                <h3>Selecciona un proyecto</h3>
+                <p>Elige un proyecto de la barra lateral para ver sus detalles y logs</p>
+            </div>
+
+            <div id="projectDetail" class="project-detail" style="display: none;">
+                <!-- Header del proyecto con información y acciones -->
+                <div class="project-header-section">
+                    <div class="project-title-section">
+                        <h1 class="project-title-main" id="currentProjectName">Proyecto</h1>
+                        <div class="project-status-badge" id="currentProjectStatus">Detenido</div>
+                    </div>
+                    
+                    <div class="project-info-grid" id="projectInfoGrid">
+                        <!-- Info se carga dinámicamente -->
+                    </div>
+                    
+                    <div class="project-actions-section" id="projectActions">
+                        <!-- Acciones se cargan dinámicamente -->
+                    </div>
+                </div>
+
+                <!-- Logs del proyecto -->
+                <div class="logs-section">
+                    <div id="realtimeIndicator" class="realtime-indicator" style="display: none;">
+                        <span class="realtime-dot"></span>
+                        <span>Logs en tiempo real</span>
+                    </div>
+                    <button class="refresh-logs-btn" onclick="refreshLogs()" title="Actualizar logs">Actualizar</button>
+                    <div class="logs-container" id="logsContainer">
+                        <div style="text-align: center; padding: 2rem; color: #666;">
+                            No hay logs disponibles
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Floating Alert -->
+    <div id="alert" class="alert"></div>
+
+    <!-- Modal para añadir proyecto -->
+    <div id="addProjectModal" class="add-project-modal">
+        <div class="add-project-content">
+            <div class="add-project-header">
+                <h3>Añadir Nuevo Proyecto</h3>
+                <span class="close" onclick="closeAddProjectModal()">&times;</span>
+            </div>
+            <div class="add-project-body">
+                <div class="form-group">
+                    <label for="githubUrl">Repositorio de GitHub</label>
+                    <input type="url" id="githubUrl" class="form-input" placeholder="https://github.com/usuario/repo.git" />
+                </div>
+                <div class="form-group">
+                    <label for="projectName">Nombre del proyecto (opcional)</label>
+                    <input type="text" id="projectName" class="form-input" placeholder="mi-proyecto" />
+                </div>
+                <div style="text-align: right;">
+                    <button class="action-button primary" onclick="addProject()">Clonar Proyecto</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="logsModal" class="logs-modal">
+        <div class="logs-content">
+            <div class="logs-header">
+                <h3 id="logsTitle">Logs del Proyecto</h3>
+                <span class="close" onclick="closeLogs()">&times;</span>
+            </div>
+            <div id="logsBody" class="logs-body">
+            </div>
+        </div>
+    </div>
+
+    <div id="envModal" class="env-modal">
+        <div class="env-content">
+            <div class="env-header">
+                <h3 id="envTitle">Project Settings</h3>
+                <span class="close" onclick="closeEnvModal()">&times;</span>
+            </div>
+            <div class="env-body">
+                <!-- Virtual Environment -->
+                <div class="settings-section">
+                    <h4>Virtual Environment</h4>
+                    <div class="settings-row">
+                        <div class="setting-info">
+                            <span class="setting-label">Python Environment</span>
+                            <span class="setting-status" id="venvStatusText">Checking...</span>
+                        </div>
+                        <div class="setting-actions">
+                            <button class="btn btn-secondary btn-sm" id="createVenvBtn">Create</button>
+                            <button class="btn btn-danger btn-sm" id="deleteVenvBtn" style="display: none;">Delete</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Dependencies -->
+                <div class="settings-section">
+                    <h4>Dependencies</h4>
+                    <div class="settings-row">
+                        <div class="setting-info">
+                            <span class="setting-label">Requirements</span>
+                            <span class="setting-status" id="reqStatusText">Checking...</span>
+                        </div>
+                        <div class="setting-actions">
+                            <button class="btn btn-primary btn-sm" id="installRequirementsBtn">Install</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Real-time Logs -->
+                <div class="settings-section">
+                    <h4>Real-time Logs</h4>
+                    <div class="settings-row">
+                        <div class="setting-info">
+                            <span class="setting-label">Auto-refresh</span>
+                            <span class="setting-status" id="realtimeStatusText">Disabled</span>
+                        </div>
+                        <div class="setting-actions">
+                            <label class="switch">
+                                <input type="checkbox" id="realtimeLogsToggle" onchange="toggleRealtimeLogs()">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="settings-grid">
+                        <div class="form-group">
+                            <label>Refresh Interval (seconds)</label>
+                            <input type="number" id="pollIntervalInput" min="0.1" max="10" step="0.1" value="0.5" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label>Max Log Entries</label>
+                            <input type="number" id="maxLogsInput" min="50" max="1000" step="10" value="200" class="form-control">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Automation -->
+                <div class="settings-section">
+                    <h4>Automation</h4>
+                    <div class="settings-grid">
+                        <div class="checkbox-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="autoCreateVenvToggle">
+                                <span class="checkmark"></span>
+                                Auto-create virtual environment
+                            </label>
+                        </div>
+                        <div class="checkbox-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="autoInstallRequirementsToggle">
+                                <span class="checkmark"></span>
+                                Auto-install dependencies
+                            </label>
+                        </div>
+                        <div class="checkbox-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="autoRestartToggle">
+                                <span class="checkmark"></span>
+                                Auto-restart on failure
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="settings-footer">
+                    <button class="btn btn-primary" onclick="saveProjectSettings()">Save Settings</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="filesModal" class="files-modal">
+        <div class="files-content">
+            <div class="files-header">
+                <div>
+                    <h3 id="filesTitle">Explorador de Archivos</h3>
+                    <div class="files-stats" id="filesStats">
+                        <div class="stat-item">
+                            <span>Archivos:</span>
+                            <span id="totalFiles">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span>Tamaño:</span>
+                            <span id="totalSize">0 KB</span>
+                        </div>
+                        <div class="stat-item">
+                            <span>Problemas:</span>
+                            <span id="totalIssues">0</span>
+                        </div>
+                    </div>
+                </div>
+                <span class="close" onclick="closeFilesModal()">&times;</span>
+            </div>
+            <div class="files-body">
+                <div id="fileTree" class="file-tree">
+                    <div style="text-align: center; padding: 2rem; color: #666;">
+                        Cargando estructura de archivos...
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+
+    <script>
+        let currentProject = null;
+        let selectedProject = null;
+        let allProjects = [];
+        let pollingInterval = null;
+        let logsPollingInterval = null;
+        let realtimeLogsInterval = null;
+        let lastLogsCheck = {};
+        let projectConfigs = {};
+
+        // Sistema de polling para reemplazar WebSockets
+        async function startPolling() {
+            // Cargar proyectos cada 3 segundos
+            pollingInterval = setInterval(async () => {
+                await loadProjects(false); // false = sin mostrar loading
+            }, 3000);
+            
+            console.log('📡 Polling HTTP iniciado (cada 3 segundos)');
+        }
+
+        async function startRealtimeLogs(projectName) {
+            stopRealtimeLogs(); // Stop any existing real-time logs
+            
+            const project = allProjects.find(p => p.name === projectName);
+            if (!project || !project.config || !project.config.realtime_logs) {
+                return;
+            }
+            
+            const pollInterval = (project.config.logs_poll_interval || 0.5) * 1000; // Convert to ms
+            
+            realtimeLogsInterval = setInterval(async () => {
+                await updateRealtimeLogs(projectName);
+            }, pollInterval);
+            
+            // Show realtime indicator
+            const indicator = document.getElementById('realtimeIndicator');
+            if (indicator) {
+                indicator.style.display = 'flex';
+            }
+            
+            console.log(`🔄 Real-time logs started for ${projectName} (every ${pollInterval}ms)`);
+        }
+
+        function stopRealtimeLogs() {
+            if (realtimeLogsInterval) {
+                clearInterval(realtimeLogsInterval);
+                realtimeLogsInterval = null;
+                
+                // Hide realtime indicator
+                const indicator = document.getElementById('realtimeIndicator');
+                if (indicator) {
+                    indicator.style.display = 'none';
+                }
+                
+                console.log('⏹ Real-time logs stopped');
+            }
+        }
+
+        async function updateProjectLogs(projectName) {
+            try {
+                // Check if project is still running before fetching logs
+                const project = allProjects.find(p => p.name === projectName);
+                if (!project || !project.running) {
+                    return; // Don't fetch logs if project is not running
+                }
+                
+                const response = await fetch(`/api/projects/${projectName}/logs?limit=10`);
+                if (response.ok) {
+                    const data = await response.json();
+                    const logs = data.logs || [];
+                    
+                    // Solo actualizar si hay logs nuevos
+                    const lastCheck = lastLogsCheck[projectName] || 0;
+                    const newLogs = logs.filter(log => {
+                        const logTime = new Date(log.timestamp).getTime();
+                        return logTime > lastCheck;
+                    });
+                    
+                    if (newLogs.length > 0) {
+                        newLogs.forEach(log => addLogToContainer(log));
+                        lastLogsCheck[projectName] = Math.max(...newLogs.map(log => new Date(log.timestamp).getTime()));
+                    }
+                }
+            } catch (error) {
+                console.error('Error actualizando logs:', error);
+            }
+        }
+
+        async function updateRealtimeLogs(projectName) {
+            try {
+                const response = await fetch(`/api/projects/${projectName}/logs/realtime`);
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    if (!data.running) {
+                        stopRealtimeLogs();
+                        return;
+                    }
+                    
+                    const logs = data.logs || [];
+                    const logsContainer = document.getElementById('logsContainer');
+                    
+                    if (logsContainer && selectedProject === projectName) {
+                        // Get current log count
+                        const currentLogCount = logsContainer.querySelectorAll('.log-entry-inline').length;
+                        
+                        // If we have more logs than currently displayed, add only new ones
+                        if (logs.length > currentLogCount) {
+                            const newLogs = logs.slice(currentLogCount);
+                            newLogs.forEach(log => {
+                                addLogToContainer(log);
+                            });
+                        } else if (logs.length < currentLogCount) {
+                            // If fewer logs (project restarted), repopulate
+                            logsContainer.innerHTML = '';
+                            logs.forEach(log => {
+                                addLogToContainer(log);
+                            });
+                        }
+                        
+                        // Auto-scroll to bottom
+                        logsContainer.scrollTop = logsContainer.scrollHeight;
+                    }
+                }
+            } catch (error) {
+                console.error('Error updating realtime logs:', error);
+            }
+        }
+
+        function stopPolling() {
+            if (pollingInterval) {
+                clearInterval(pollingInterval);
+                pollingInterval = null;
+            }
+            stopRealtimeLogs();
+        }
+
+        function addLogToContainer(log) {
+            const logsContainer = document.getElementById('logsContainer');
+            const time = new Date(log.timestamp).toLocaleTimeString();
+            
+            const logElement = document.createElement('div');
+            logElement.className = 'log-entry-inline';
+            logElement.innerHTML = `
+                <span class="log-timestamp-inline">[${time}]</span>
+                <span class="log-message-inline">${escapeHtml(log.message)}</span>
+            `;
+            
+            logsContainer.appendChild(logElement);
+            
+            // Get project configuration to determine max logs
+            const project = allProjects.find(p => p.name === selectedProject);
+            const maxLogs = project?.config?.max_logs_display || 200;
+            
+            // Limitar el número de logs mostrados según configuración
+            const logs = logsContainer.querySelectorAll('.log-entry-inline');
+            if (logs.length > maxLogs) {
+                // Remove oldest logs to maintain limit
+                const removeCount = logs.length - maxLogs;
+                for (let i = 0; i < removeCount; i++) {
+                    logs[i].remove();
+                }
+            }
+            
+            // Auto-scroll to bottom
+            logsContainer.scrollTop = logsContainer.scrollHeight;
+        }
+
+        function showAlert(message, type = 'success') {
+            const alert = document.getElementById('alert');
+            alert.className = `alert alert-${type}`;
+            alert.textContent = message;
+            alert.classList.add('show');
+            
+            setTimeout(() => {
+                alert.classList.remove('show');
+            }, 5000);
+        }
+
+        function addLogEntry(log) {
+            const logsBody = document.getElementById('logsBody');
+            const logEntry = document.createElement('div');
+            logEntry.className = 'log-entry';
+            
+            const timestamp = new Date(log.timestamp).toLocaleTimeString();
+            logEntry.innerHTML = `
+                <span class="log-timestamp">[${timestamp}]</span>
+                <span class="log-message">${escapeHtml(log.message)}</span>
+            `;
+            
+            logsBody.appendChild(logEntry);
+            logsBody.scrollTop = logsBody.scrollHeight;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function updateProjectPreview(projectName, newLog) {
+            // Buscar la card del proyecto
+            const cards = document.querySelectorAll('.project-card');
+            cards.forEach(card => {
+                const nameElement = card.querySelector('.project-name');
+                if (nameElement && nameElement.textContent === projectName) {
+                    const previewElement = card.querySelector('.logs-preview');
+                    if (previewElement) {
+                        // Obtener las líneas existentes
+                        const existingLines = previewElement.querySelectorAll('.log-line');
+                        
+                        // Crear nueva línea
+                        const time = new Date(newLog.timestamp).toLocaleTimeString('es-ES', {hour: '2-digit', minute: '2-digit'});
+                        const newLine = document.createElement('div');
+                        newLine.className = 'log-line';
+                        newLine.innerHTML = `
+                            <span class="log-time">${time}</span>
+                            <span class="log-text">${escapeHtml(newLog.message.substring(0, 60))}${newLog.message.length > 60 ? '...' : ''}</span>
+                        `;
+                        
+                        // Si hay más de 3 líneas, eliminar la primera
+                        if (existingLines.length >= 3) {
+                            existingLines[0].remove();
+                        }
+                        
+                        // Añadir la nueva línea
+                        previewElement.appendChild(newLine);
+                    }
+                }
+            });
+        }
+
+        // Funciones principales de la nueva interfaz
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            sidebar.classList.toggle('collapsed');
+        }
+
+        function openAddProjectModal() {
+            document.getElementById('addProjectModal').style.display = 'block';
+        }
+
+        function closeAddProjectModal() {
+            document.getElementById('addProjectModal').style.display = 'none';
+            document.getElementById('githubUrl').value = '';
+            document.getElementById('projectName').value = '';
+        }
+
+        function selectProject(projectName) {
+            // Stop previous realtime logs
+            stopRealtimeLogs();
+            
+            selectedProject = projectName;
+            
+            // Actualizar interfaz
+            updateSidebarSelection();
+            updateProjectDetail();
+            
+            // Inicializar timestamp para logs de este proyecto
+            lastLogsCheck[projectName] = Date.now();
+            
+            // Start realtime logs if configured
+            const project = allProjects.find(p => p.name === projectName);
+            if (project && project.running && project.config && project.config.realtime_logs) {
+                startRealtimeLogs(projectName);
+            }
+        }
+
+        function updateSidebarSelection() {
+            document.querySelectorAll('.project-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            
+            const selectedItem = document.querySelector(`[data-project="${selectedProject}"]`);
+            if (selectedItem) {
+                selectedItem.classList.add('active');
+            }
+        }
+
+        function updateProjectDetail() {
+            const project = allProjects.find(p => p.name === selectedProject);
+            if (!project) return;
+
+            // Mostrar la sección de detalle y ocultar el estado vacío
+            document.getElementById('emptyState').style.display = 'none';
+            document.getElementById('projectDetail').style.display = 'flex';
+
+            // Actualizar título y estado
+            document.getElementById('currentProjectName').textContent = project.name;
+            const statusBadge = document.getElementById('currentProjectStatus');
+            statusBadge.textContent = project.running ? 'Ejecutándose' : 'Detenido';
+            statusBadge.className = `project-status-badge ${project.running ? 'running' : 'stopped'}`;
+
+            // Actualizar información del proyecto
+            updateProjectInfo(project);
+            
+            // Actualizar acciones disponibles
+            updateProjectActions(project);
+            
+            // Cargar logs si está ejecutándose
+            updateProjectLogs(project);
+        }
+
+        function updateProjectInfo(project) {
+            const infoGrid = document.getElementById('projectInfoGrid');
+            
+            infoGrid.innerHTML = `
+                <div class="project-status-grid">
+                    <div class="status-item ${project.has_init ? 'available' : 'unavailable'}">
+                        <span class="status-indicator"></span>
+                        <span class="status-text">Executable</span>
+                    </div>
+                    <div class="status-item ${project.has_venv ? 'available' : 'unavailable'}">
+                        <span class="status-indicator"></span>
+                        <span class="status-text">Virtual Env</span>
+                    </div>
+                    <div class="status-item ${project.has_requirements ? 'available' : 'unavailable'}">
+                        <span class="status-indicator"></span>
+                        <span class="status-text">Dependencies</span>
+                    </div>
+                    ${project.is_git ? `
+                        <div class="status-item available">
+                            <span class="status-indicator"></span>
+                            <span class="status-text">Git Repository</span>
+                        </div>
+                    ` : ''}
+                    ${project.pid ? `
+                        <div class="status-info">
+                            <span class="info-label">Process ID:</span>
+                            <span class="info-value">${project.pid}</span>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }
+
+        function updateProjectActions(project) {
+            const actionsSection = document.getElementById('projectActions');
+            let actions = '';
+
+            if (project.running) {
+                actions += `<button class="action-button danger" onclick="stopProject('${project.name}')">Detener</button>`;
+            } else {
+                if (project.has_init) {
+                    actions += `<button class="action-button primary" onclick="startProject('${project.name}')">Ejecutar</button>`;
+                }
+            }
+
+            actions += `<button class="action-button secondary" onclick="openProjectSettingsModal('${project.name}')" ${project.running ? 'disabled' : ''}>Settings</button>`;
+            actions += `<button class="action-button secondary" onclick="openFilesModal('${project.name}')">Explorar</button>`;
+
+            if (project.is_git) {
+                actions += `<button class="action-button warning" onclick="pullProject('${project.name}')" ${project.running ? 'disabled' : ''}>Pull</button>`;
+                actions += `<button class="action-button danger" onclick="deleteProject('${project.name}')" ${project.running ? 'disabled' : ''}>Eliminar Proyecto</button>`;
+            }
+
+            actionsSection.innerHTML = actions;
+        }
+
+        function updateProjectLogs(project) {
+            const logsContainer = document.getElementById('logsContainer');
+            
+            if (project.running && project.recent_logs && project.recent_logs.length > 0) {
+                // Clear container and add all logs
+                logsContainer.innerHTML = '';
+                project.recent_logs.forEach(log => {
+                    addLogToContainer(log);
+                });
+            } else if (project.running) {
+                logsContainer.innerHTML = '<div style="text-align: center; padding: 2rem; color: #666;">Esperando logs...</div>';
+            } else {
+                logsContainer.innerHTML = '<div style="text-align: center; padding: 2rem; color: #666;">Proyecto detenido - No hay logs</div>';
+            }
+        }
+
+        async function loadProjects(showLoading = true) {
+            try {
+                if (showLoading) {
+                    // Mostrar loading solo si se solicita
+                    const projectsList = document.getElementById('projectsList');
+                    if (projectsList.children.length === 0) {
+                        projectsList.innerHTML = '<div style="padding: 1rem; text-align: center; color: #666;">Cargando...</div>';
+                    }
+                }
+                
+                const response = await fetch('/api/projects');
+                const projects = await response.json();
+                
+                // Verificar si realmente han cambiado los proyectos
+                const hasChanges = JSON.stringify(allProjects) !== JSON.stringify(projects);
+                allProjects = projects;
+                
+                if (!hasChanges && !showLoading) {
+                    return; // No hay cambios, no actualizar UI
+                }
+                
+                const projectsList = document.getElementById('projectsList');
+                projectsList.innerHTML = '';
+                
+                if (projects.length === 0) {
+                    projectsList.innerHTML = `
+                        <div style="padding: 2rem 1rem; text-align: center; color: #666;">
+                            <p>No hay proyectos</p>
+                            <p style="font-size: 0.8rem; margin-top: 0.5rem;">Añade uno abajo</p>
+                        </div>
+                    `;
+                } else {
+                    projects.forEach(project => {
+                        const projectItem = createProjectSidebarItem(project);
+                        projectsList.appendChild(projectItem);
+                    });
+                }
+
+                // Si hay un proyecto seleccionado, actualizarlo
+                if (selectedProject) {
+                    updateProjectDetail();
+                    updateSidebarSelection();
+                }
+                
+                // Guardar proyectos en localStorage para el modal de entorno
+                localStorage.setItem('lastProjects', JSON.stringify(projects));
+            } catch (error) {
+                showAlert('Error al cargar proyectos: ' + error.message, 'error');
+            }
+        }
+
+        function createProjectSidebarItem(project) {
+            const item = document.createElement('div');
+            item.className = 'project-item';
+            item.setAttribute('data-project', project.name);
+            item.onclick = () => selectProject(project.name);
+
+            const statusClass = project.running ? 'running' : 'stopped';
+            const typeIcon = project.is_git ? 'GIT' : 'LOCAL';
+            const typeClass = project.is_git ? 'git' : 'local';
+            
+            item.innerHTML = `
+                <div class="project-status ${statusClass}"></div>
+                <div class="project-info">
+                    <div class="project-name">${project.name}</div>
+                    <div class="project-type-icon ${typeClass}" title="${project.is_git ? 'Repositorio Git' : 'Proyecto Local'}">${typeIcon}</div>
+                </div>
+            `;
+
+            return item;
+        }
+
+        function createProjectCard(project) {
+            const card = document.createElement('div');
+            card.className = 'project-card';
+            
+            // Hacer click en toda la card para abrir logs (solo si está ejecutándose)
+            if (project.running) {
+                card.addEventListener('click', (e) => {
+                    // No abrir logs si se hizo click en un botón
+                    if (!e.target.closest('.action-btn')) {
+                        showLogs(project.name);
+                    }
+                });
+            }
+            
+            const statusClass = project.running ? 'status-running' : 'status-stopped';
+            const statusText = project.running ? 'Ejecutándose' : 'Detenido';
+            
+            // Generar preview de logs
+            let logsPreview = '';
+            if (project.running && project.recent_logs && project.recent_logs.length > 0) {
+                logsPreview = project.recent_logs.map(log => {
+                    const time = new Date(log.timestamp).toLocaleTimeString('es-ES', {hour: '2-digit', minute: '2-digit'});
+                    return `<div class="log-line">
+                        <span class="log-time">${time}</span>
+                        <span class="log-text">${escapeHtml(log.message.substring(0, 60))}${log.message.length > 60 ? '...' : ''}</span>
+                    </div>`;
+                }).join('');
+            } else if (project.running) {
+                logsPreview = '<div class="no-logs">Esperando logs...</div>';
+            } else {
+                logsPreview = '<div class="no-logs">Proyecto detenido</div>';
+            }
+            
+            card.innerHTML = `
+                <div class="project-header">
+                    <div class="project-menu">
+                        <button class="menu-button" onclick="toggleMenu(event, '${project.name}')">⋯</button>
+                        <div class="menu-dropdown" id="menu-${project.name}">
+                            <div class="menu-item" onclick="openEnvModal('${project.name}')" ${project.running ? 'class="disabled"' : ''}>
+                                🐍 Gestionar Entorno
+                            </div>
+                            ${project.is_git ? `
+                                <div class="menu-item" onclick="pullProject('${project.name}')" ${project.running ? 'class="disabled"' : ''}>
+                                    🔄 Actualizar Código
+                                </div>
+                            ` : ''}
+                            ${project.is_git ? `
+                                <div class="menu-item" onclick="deleteProject('${project.name}')" ${project.running ? 'class="disabled"' : ''}>
+                                    🗑 Eliminar Proyecto
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                    <div class="project-title">
+                        <div class="project-name">${project.name}</div>
+                        <div class="status-badge ${statusClass}">${statusText}</div>
+                    </div>
+                    <div class="project-meta">
+                        <div class="meta-item">
+                            <div class="indicator ${project.has_init ? 'success' : 'error'}"></div>
+                            <span>Python</span>
+                        </div>
+                        <div class="meta-item">
+                            <div class="indicator ${project.is_git ? 'success' : 'error'}"></div>
+                            <span>Git</span>
+                        </div>
+                        <div class="meta-item">
+                            <div class="indicator ${project.has_venv ? 'success' : 'error'}"></div>
+                            <span>Venv</span>
+                        </div>
+                        <div class="meta-item">
+                            <div class="indicator ${project.has_requirements ? 'success' : 'error'}"></div>
+                            <span>Deps</span>
+                        </div>
+                        ${project.pid ? `<div class="meta-item"><span>PID: ${project.pid}</span></div>` : ''}
+                    </div>
+                </div>
+                
+                <div class="logs-preview">
+                    ${logsPreview}
+                </div>
+                
+                <div class="project-actions" onclick="event.stopPropagation()">
+                    ${project.running ? 
+                        `<button class="action-btn danger" onclick="stopProject('${project.name}')">⏹ Detener</button>` :
+                        `<button class="action-btn success" onclick="startProject('${project.name}')" ${!project.has_init ? 'disabled' : ''}>▶ Ejecutar</button>`
+                    }
+                    ${project.is_git ? 
+                        `<button class="action-btn warning" onclick="pullProject('${project.name}')" ${project.running ? 'disabled' : ''}>🔄 Pull</button>` : 
+                        ''
+                    }
+                    ${project.is_git ? 
+                        `<button class="action-btn danger" onclick="deleteProject('${project.name}')" ${project.running ? 'disabled' : ''}>🗑 Eliminar</button>` :
+                        ''
+                    }
+                </div>
+            `;
+            
+            return card;
+        }
+
+        async function addProject() {
+            const githubUrl = document.getElementById('githubUrl').value.trim();
+            const projectName = document.getElementById('projectName').value.trim();
+            
+            if (!githubUrl) {
+                showAlert('Por favor ingresa una URL de GitHub', 'error');
+                return;
+            }
+            
+            const button = event.target;
+            const originalText = button.textContent;
+            button.innerHTML = '<span class="loading-spinner"></span>Clonando...';
+            button.disabled = true;
+            
+            try {
+                const response = await fetch('/api/projects', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ github_url: githubUrl, project_name: projectName })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showAlert(result.message);
+                    closeAddProjectModal();
+                    await loadProjects();
+                    
+                    // Seleccionar el nuevo proyecto
+                    const newProjectName = projectName || githubUrl.split('/').pop().replace('.git', '');
+                    selectProject(newProjectName);
+                } else {
+                    showAlert(result.error, 'error');
+                }
+            } catch (error) {
+                showAlert('Error al añadir proyecto: ' + error.message, 'error');
+            } finally {
+                button.textContent = originalText;
+                button.disabled = false;
+            }
+        }
+
+        async function startProject(projectName) {
+            try {
+                console.log('[DEBUG] Iniciando proyecto:', projectName);
+                const response = await fetch(`/api/projects/${projectName}/start`, {
+                    method: 'POST'
+                });
+                
+                const result = await response.json();
+                console.log('[DEBUG] Respuesta del servidor:', result);
+                
+                if (response.ok) {
+                    showAlert(result.message);
+                    await loadProjects();
+                    
+                    // Inicializar logs para el proyecto recién iniciado
+                    lastLogsCheck[projectName] = Date.now();
+                } else {
+                    showAlert(result.error, 'error');
+                }
+            } catch (error) {
+                console.log('[DEBUG] Error al iniciar:', error);
+                showAlert('Error al iniciar proyecto: ' + error.message, 'error');
+            }
+        }
+
+        async function stopProject(projectName) {
+            try {
+                const response = await fetch(`/api/projects/${projectName}/stop`, {
+                    method: 'POST'
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showAlert(result.message);
+                    
+                    // Actualizar inmediatamente el estado local
+                    const project = allProjects.find(p => p.name === projectName);
+                    if (project) {
+                        project.running = false;
+                        project.pid = null;
+                        project.started_at = null;
+                        project.recent_logs = [];
+                    }
+                    
+                    // Actualizar la interfaz inmediatamente
+                    if (selectedProject === projectName) {
+                        updateProjectDetail();
+                    }
+                    updateSidebarSelection();
+                    
+                    // Cargar proyectos para sincronizar con el servidor
+                    await loadProjects();
+                } else {
+                    showAlert(result.error, 'error');
+                }
+            } catch (error) {
+                showAlert('Error al detener proyecto: ' + error.message, 'error');
+            }
+        }
+
+        async function pullProject(projectName) {
+            const button = event.target;
+            button.classList.add('loading');
+            button.textContent = 'Actualizando...';
+            
+            try {
+                const response = await fetch(`/api/projects/${projectName}/update`, {
+                    method: 'POST'
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showAlert(result.message);
+                    await loadProjects();
+                } else {
+                    showAlert(result.error, 'error');
+                }
+            } catch (error) {
+                showAlert('Error al actualizar proyecto: ' + error.message, 'error');
+            } finally {
+                button.classList.remove('loading');
+                button.textContent = '🔄 Pull';
+            }
+        }
+
+        async function deleteProject(projectName) {
+            if (!confirm(`¿Estás seguro de que quieres eliminar el proyecto "${projectName}"?`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/projects/${projectName}`, {
+                    method: 'DELETE'
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showAlert(result.message);
+                    await loadProjects();
+                } else {
+                    showAlert(result.error, 'error');
+                }
+            } catch (error) {
+                showAlert('Error al eliminar proyecto: ' + error.message, 'error');
+            }
+        }
+
+        async function showLogs(projectName) {
+            currentProject = projectName;
+            document.getElementById('logsTitle').textContent = `Logs de ${projectName}`;
+            document.getElementById('logsBody').innerHTML = '';
+            document.getElementById('logsModal').style.display = 'block';
+            
+            try {
+                const response = await fetch(`/api/projects/${projectName}/logs`);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    const logs = data.logs || [];
+                    logs.forEach(log => addLogEntry(log));
+                }
+            } catch (error) {
+                console.error('Error al cargar logs:', error);
+            }
+        }
+
+        function closeLogs() {
+            document.getElementById('logsModal').style.display = 'none';
+            currentProject = null;
+        }
+
+        function toggleMenu(event, projectName) {
+            event.stopPropagation();
+            const menu = document.getElementById(`menu-${projectName}`);
+            
+            // Cerrar todos los otros menús
+            document.querySelectorAll('.menu-dropdown').forEach(dropdown => {
+                if (dropdown !== menu) {
+                    dropdown.classList.remove('show');
+                }
+            });
+            
+            // Toggle del menú actual
+            menu.classList.toggle('show');
+        }
+
+        function closeEnvModal() {
+            document.getElementById('envModal').style.display = 'none';
+        }
+
+        let currentEnvProject = null;
+
+        function openProjectSettingsModal(projectName) {
+            currentEnvProject = projectName;
+            document.getElementById('envTitle').textContent = `Project Settings - ${projectName}`;
+            
+            // Load environment status
+            updateEnvModalStatus(projectName);
+            
+            // Load project configuration
+            loadProjectConfiguration(projectName);
+            
+            document.getElementById('envModal').style.display = 'block';
+            
+            // Cerrar menú
+            if (document.getElementById(`menu-${projectName}`)) {
+                document.getElementById(`menu-${projectName}`).classList.remove('show');
+            }
+        }
+
+        // Legacy function for backward compatibility
+        function openEnvModal(projectName) {
+            openProjectSettingsModal(projectName);
+        }
+
+        function updateEnvModalStatus(projectName) {
+            // Buscar el proyecto para obtener su estado
+            const project = allProjects.find(p => p.name === projectName);
+            
+            if (!project) {
+                return;
+            }
+            
+            // Actualizar estado del entorno virtual
+            const venvText = document.getElementById('venvStatusText');
+            const createBtn = document.getElementById('createVenvBtn');
+            const deleteBtn = document.getElementById('deleteVenvBtn');
+            
+            if (project.has_venv) {
+                venvText.textContent = 'Active';
+                createBtn.style.display = 'none';
+                deleteBtn.style.display = 'inline-block';
+            } else {
+                venvText.textContent = 'Not configured';
+                createBtn.style.display = 'inline-block';
+                deleteBtn.style.display = 'none';
+            }
+            
+            // Actualizar estado de requirements
+            const reqText = document.getElementById('reqStatusText');
+            const installBtn = document.getElementById('installRequirementsBtn');
+            
+            if (project.has_requirements) {
+                reqText.textContent = 'requirements.txt found';
+                installBtn.disabled = !project.has_venv;
+            } else {
+                reqText.textContent = 'requirements.txt not found';
+                installBtn.disabled = true;
+            }
+        }
+
+        async function createVenv() {
+            if (!currentEnvProject) return;
+            
+            const btn = document.getElementById('createVenvBtn');
+            const originalText = btn.textContent;
+            btn.innerHTML = '<span class="loading-spinner"></span>Creando...';
+            btn.disabled = true;
+            
+            try {
+                const response = await fetch(`/api/projects/${currentEnvProject}/venv`, {
+                    method: 'POST'
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showAlert(result.message);
+                    await loadProjects();
+                    updateEnvModalStatus(currentEnvProject);
+                } else {
+                    showAlert(result.error, 'error');
+                }
+            } catch (error) {
+                showAlert('Error creando entorno: ' + error.message, 'error');
+            } finally {
+                btn.textContent = originalText;
+                btn.disabled = false;
+            }
+        }
+
+        async function deleteVenv() {
+            if (!currentEnvProject) return;
+            
+            if (!confirm('¿Estás seguro de eliminar el entorno virtual?')) return;
+            
+            const btn = document.getElementById('deleteVenvBtn');
+            const originalText = btn.textContent;
+            btn.innerHTML = '<span class="loading-spinner"></span>Eliminando...';
+            btn.disabled = true;
+            
+            try {
+                const response = await fetch(`/api/projects/${currentEnvProject}/venv`, {
+                    method: 'DELETE'
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showAlert(result.message);
+                    await loadProjects();
+                    updateEnvModalStatus(currentEnvProject);
+                } else {
+                    showAlert(result.error, 'error');
+                }
+            } catch (error) {
+                showAlert('Error eliminando entorno: ' + error.message, 'error');
+            } finally {
+                btn.textContent = originalText;
+                btn.disabled = false;
+            }
+        }
+
+        async function installRequirements() {
+            if (!currentEnvProject) return;
+            
+            const btn = document.getElementById('installRequirementsBtn');
+            const originalText = btn.textContent;
+            btn.innerHTML = '<span class="loading-spinner"></span>Instalando...';
+            btn.disabled = true;
+            
+            try {
+                const response = await fetch(`/api/projects/${currentEnvProject}/install`, {
+                    method: 'POST'
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showAlert(result.message);
+                    if (result.output) {
+                        console.log('Pip output:', result.output);
+                    }
+                } else {
+                    showAlert(result.error, 'error');
+                }
+            } catch (error) {
+                showAlert('Error instalando requisitos: ' + error.message, 'error');
+            } finally {
+                btn.textContent = originalText;
+                btn.disabled = false;
+            }
+        }
+
+        // File Explorer Functions
+        let currentFilesProject = null;
+
+        async function openFilesModal(projectName) {
+            currentFilesProject = projectName;
+            document.getElementById('filesTitle').textContent = `📁 Explorador de Archivos - ${projectName}`;
+            document.getElementById('filesModal').style.display = 'block';
+            
+            // Reset content
+            document.getElementById('fileTree').innerHTML = '<div style="text-align: center; padding: 2rem; color: #666;">Cargando estructura de archivos...</div>';
+            
+            try {
+                const response = await fetch(`/api/projects/${projectName}/files`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    updateFileStats(data.stats);
+                    renderFileTree(data.files);
+                } else {
+                    document.getElementById('fileTree').innerHTML = `<div style="text-align: center; padding: 2rem; color: #ef4444;">Error: ${data.error}</div>`;
+                }
+            } catch (error) {
+                document.getElementById('fileTree').innerHTML = `<div style="text-align: center; padding: 2rem; color: #ef4444;">Error al cargar archivos: ${error.message}</div>`;
+            }
+        }
+
+        function closeFilesModal() {
+            document.getElementById('filesModal').style.display = 'none';
+            currentFilesProject = null;
+        }
+
+        function updateFileStats(stats) {
+            document.getElementById('totalFiles').textContent = `${stats.total_files} archivos`;
+            document.getElementById('totalSize').textContent = formatFileSize(stats.total_size);
+            document.getElementById('totalIssues').textContent = `${stats.issues_count} problemas`;
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+        }
+
+        function getFileIcon(item) {
+            if (item.type === 'directory') {
+                return '▶';
+            }
+            
+            const ext = item.extension || '';
+            switch (ext) {
+                case '.py': return 'PY';
+                case '.js': return 'JS';
+                case '.html': return 'HTML';
+                case '.css': return 'CSS';
+                case '.json': return 'JSON';
+                case '.md': return 'MD';
+                case '.txt': return 'TXT';
+                case '.yml':
+                case '.yaml': return 'YML';
+                case '.git': return 'GIT';
+                case '.png':
+                case '.jpg':
+                case '.jpeg':
+                case '.gif': return 'IMG';
+                default: return 'FILE';
+            }
+        }
+
+        function getFileColorClass(item) {
+            if (item.type === 'directory') {
+                return 'file-directory';
+            }
+            
+            const ext = item.extension || '';
+            switch (ext) {
+                case '.py': return 'file-python';
+                case '.json':
+                case '.yml':
+                case '.yaml':
+                case '.toml': return 'file-config';
+                case '.md':
+                case '.txt':
+                case '.rst': return 'file-text';
+                default: return 'file-unknown';
+            }
+        }
+
+        function renderFileTree(files, container = null, level = 0) {
+            if (!container) {
+                container = document.getElementById('fileTree');
+                container.innerHTML = '';
+            }
+            
+            files.forEach(item => {
+                const itemElement = document.createElement('div');
+                itemElement.className = 'tree-item';
+                if (level > 0) {
+                    itemElement.style.marginLeft = `${level * 1.5}rem`;
+                }
+                
+                const icon = getFileIcon(item);
+                const colorClass = getFileColorClass(item);
+                
+                let issuesHtml = '';
+                if (item.issues && item.issues.length > 0) {
+                    issuesHtml = `<div class="tree-issues">`;
+                    item.issues.forEach(issue => {
+                        issuesHtml += `<span class="issue-badge" title="${issue}">! ${item.issues.length}</span>`;
+                    });
+                    issuesHtml += `</div>`;
+                }
+                
+                let sizeHtml = '';
+                if (item.type === 'file') {
+                    sizeHtml = `<span class="tree-size">${formatFileSize(item.size)}</span>`;
+                } else if (item.type === 'directory') {
+                    sizeHtml = `<span class="tree-size">${item.size} elementos</span>`;
+                }
+                
+                itemElement.innerHTML = `
+                    <span class="tree-icon">${item.type === 'directory' ? (item.children && item.children.length > 0 ? '▼' : 'DIR') : icon}</span>
+                    <span class="tree-name ${colorClass}">${item.name}</span>
+                    ${sizeHtml}
+                    ${issuesHtml}
+                `;
+                
+                if (item.type === 'directory' && item.children && item.children.length > 0) {
+                    itemElement.classList.add('expandable', 'expanded');
+                    itemElement.onclick = (e) => {
+                        e.stopPropagation();
+                        toggleDirectory(itemElement);
+                    };
+                    
+                    container.appendChild(itemElement);
+                    
+                    const childrenContainer = document.createElement('div');
+                    childrenContainer.className = 'tree-children';
+                    container.appendChild(childrenContainer);
+                    
+                    renderFileTree(item.children, childrenContainer, level + 1);
+                } else {
+                    container.appendChild(itemElement);
+                }
+            });
+        }
+
+        function toggleDirectory(element) {
+            const isExpanded = element.classList.contains('expanded');
+            const icon = element.querySelector('.tree-icon');
+            const childrenContainer = element.nextElementSibling;
+            
+            if (isExpanded) {
+                element.classList.remove('expanded');
+                element.classList.add('collapsed');
+                icon.textContent = '▶';
+                if (childrenContainer && childrenContainer.classList.contains('tree-children')) {
+                    childrenContainer.style.display = 'none';
+                }
+            } else {
+                element.classList.remove('collapsed');
+                element.classList.add('expanded');
+                icon.textContent = '▼';
+                if (childrenContainer && childrenContainer.classList.contains('tree-children')) {
+                    childrenContainer.style.display = 'block';
+                }
+            }
+        }
+
+        window.onclick = function(event) {
+            const logsModal = document.getElementById('logsModal');
+            const envModal = document.getElementById('envModal');
+            const addProjectModal = document.getElementById('addProjectModal');
+            const filesModal = document.getElementById('filesModal');
+            
+            if (event.target === logsModal) {
+                closeLogs();
+            }
+            if (event.target === envModal) {
+                closeEnvModal();
+            }
+            if (event.target === addProjectModal) {
+                closeAddProjectModal();
+            }
+            if (event.target === filesModal) {
+                closeFilesModal();
+            }
+            
+        }
+
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                closeLogs();
+                closeEnvModal();
+                closeAddProjectModal();
+                closeFilesModal();
+            }
+        });
+
+        // Conectar botones del modal de entorno
+        document.getElementById('createVenvBtn').addEventListener('click', createVenv);
+        document.getElementById('deleteVenvBtn').addEventListener('click', deleteVenv);
+        document.getElementById('installRequirementsBtn').addEventListener('click', installRequirements);
+
+
+        // Función para refrescar logs manualmente
+        async function refreshLogs() {
+            if (selectedProject) {
+                const project = allProjects.find(p => p.name === selectedProject);
+                if (project && project.running) {
+                    // Limpiar logs actuales y recargar
+                    const logsContainer = document.getElementById('logsContainer');
+                    logsContainer.innerHTML = '<div style="text-align: center; padding: 2rem; color: #666;">Cargando logs...</div>';
+                    
+                    try {
+                        // Fetch fresh logs from realtime endpoint
+                        const response = await fetch(`/api/projects/${selectedProject}/logs/realtime`);
+                        if (response.ok) {
+                            const data = await response.json();
+                            const logs = data.logs || [];
+                            
+                            // Clear and reload all logs
+                            logsContainer.innerHTML = '';
+                            logs.forEach(log => {
+                                addLogToContainer(log);
+                            });
+                            
+                            showAlert(`Logs actualizados - ${logs.length} entradas cargadas`);
+                        } else {
+                            showAlert('Error al cargar logs', 'error');
+                        }
+                    } catch (error) {
+                        showAlert('Error de conexión al refrescar logs', 'error');
+                    }
+                } else {
+                    showAlert('El proyecto debe estar ejecutándose para refrescar logs', 'error');
+                }
+            }
+        }
+
+
+        // Inicializar aplicación
+        document.addEventListener('DOMContentLoaded', async function() {
+            console.log('🚀 Iniciando Deployer (HTTP)');
+            await loadProjects();
+            startPolling();
+        });
+
+
+        // Project Configuration Functions
+        async function loadProjectConfiguration(projectName) {
+            try {
+                const response = await fetch(`/api/projects/${projectName}/config`);
+                if (response.ok) {
+                    const config = await response.json();
+                    
+                    // Update configuration UI
+                    document.getElementById('realtimeLogsToggle').checked = config.realtime_logs || false;
+                    document.getElementById('pollIntervalInput').value = config.logs_poll_interval || 0.5;
+                    document.getElementById('maxLogsInput').value = config.max_logs_display || 200;
+                    document.getElementById('autoCreateVenvToggle').checked = config.auto_create_venv || false;
+                    document.getElementById('autoInstallRequirementsToggle').checked = config.auto_install_requirements || false;
+                    document.getElementById('autoRestartToggle').checked = config.auto_restart_on_failure || false;
+                    
+                    updateRealtimeStatusInModal();
+                }
+            } catch (error) {
+                console.error('Error loading project configuration:', error);
+            }
+        }
+
+        function updateRealtimeStatusInModal() {
+            const isEnabled = document.getElementById('realtimeLogsToggle').checked;
+            const text = document.getElementById('realtimeStatusText');
+            
+            if (isEnabled) {
+                text.textContent = 'Enabled';
+            } else {
+                text.textContent = 'Disabled';
+            }
+        }
+
+        function toggleRealtimeLogs() {
+            updateRealtimeStatusInModal();
+            
+            // If currently selected project and real-time is being enabled
+            if (currentEnvProject === selectedProject) {
+                const isEnabled = document.getElementById('realtimeLogsToggle').checked;
+                if (isEnabled) {
+                    // Start real-time logs immediately for testing
+                    startRealtimeLogs(selectedProject);
+                } else {
+                    stopRealtimeLogs();
+                }
+            }
+        }
+
+        async function saveProjectSettings() {
+            if (!currentEnvProject) return;
+            
+            const config = {
+                realtime_logs: document.getElementById('realtimeLogsToggle').checked,
+                logs_poll_interval: parseFloat(document.getElementById('pollIntervalInput').value),
+                max_logs_display: parseInt(document.getElementById('maxLogsInput').value),
+                auto_create_venv: document.getElementById('autoCreateVenvToggle').checked,
+                auto_install_requirements: document.getElementById('autoInstallRequirementsToggle').checked,
+                auto_restart_on_failure: document.getElementById('autoRestartToggle').checked
+            };
+            
+            try {
+                const response = await fetch(`/api/projects/${currentEnvProject}/config`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(config)
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showAlert('Settings saved successfully');
+                    
+                    // Update project in local cache
+                    const project = allProjects.find(p => p.name === currentEnvProject);
+                    if (project) {
+                        project.config = config;
+                        
+                        // Restart real-time logs if this is the selected project
+                        if (currentEnvProject === selectedProject && project.running) {
+                            stopRealtimeLogs();
+                            if (config.realtime_logs) {
+                                startRealtimeLogs(currentEnvProject);
+                            }
+                        }
+                    }
+                    
+                    closeEnvModal();
+                } else {
+                    showAlert(result.error, 'error');
+                }
+            } catch (error) {
+                showAlert('Error saving settings: ' + error.message, 'error');
+            }
+        }
+
+        // Limpiar polling al cerrar la página
+        window.addEventListener('beforeunload', function() {
+            stopPolling();
+        });
+    </script>
+</body>
+</html>
