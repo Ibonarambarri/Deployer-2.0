@@ -199,6 +199,10 @@ def get_project_metrics(project_name: str):
                 historical_data['health_score'] = []
             if 'error_rate_percent' not in historical_data:
                 historical_data['error_rate_percent'] = []
+            if 'health_check_status' not in historical_data:
+                historical_data['health_check_status'] = []
+            if 'health_check_response_time_ms' not in historical_data:
+                historical_data['health_check_response_time_ms'] = []
             
             historical_data['cpu_percent'].append({
                 'timestamp': timestamp_str,
@@ -216,6 +220,19 @@ def get_project_metrics(project_name: str):
                 'timestamp': timestamp_str,
                 'value': metric.error_rate_percent
             })
+            
+            # Add health check metrics if available
+            if metric.health_check_status is not None:
+                historical_data['health_check_status'].append({
+                    'timestamp': timestamp_str,
+                    'value': 1.0 if metric.health_check_status else 0.0
+                })
+            
+            if metric.health_check_response_time_ms is not None:
+                historical_data['health_check_response_time_ms'].append({
+                    'timestamp': timestamp_str,
+                    'value': metric.health_check_response_time_ms
+                })
         
         response = {
             'project_name': project_name,
@@ -232,7 +249,11 @@ def get_project_metrics(project_name: str):
                 'last_error': current_metrics.last_error,
                 'last_error_time': current_metrics.last_error_time.isoformat() if current_metrics.last_error_time else None,
                 'disk_usage_mb': current_metrics.disk_usage_mb,
-                'log_entries_per_minute': current_metrics.log_entries_per_minute
+                'log_entries_per_minute': current_metrics.log_entries_per_minute,
+                'health_check_status': current_metrics.health_check_status,
+                'health_check_response_time_ms': current_metrics.health_check_response_time_ms,
+                'health_check_last_checked': current_metrics.health_check_last_checked.isoformat() if current_metrics.health_check_last_checked else None,
+                'health_check_error': current_metrics.health_check_error
             },
             'historical_data': historical_data,
             'performance_summary': {

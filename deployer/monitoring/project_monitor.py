@@ -10,6 +10,7 @@ import time
 import threading
 import logging
 import psutil
+import requests
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any, Set
 from dataclasses import dataclass, asdict
@@ -54,6 +55,12 @@ class ProjectMetrics:
     health_score: float = 100.0
     last_error: Optional[str] = None
     last_error_time: Optional[datetime] = None
+    
+    # HTTP Health check
+    health_check_status: Optional[bool] = None
+    health_check_response_time_ms: Optional[float] = None
+    health_check_last_checked: Optional[datetime] = None
+    health_check_error: Optional[str] = None
     
     # Custom metrics
     custom_metrics: Dict[str, float] = None
@@ -316,12 +323,70 @@ class ProjectMonitor(MetricsCollector):
         try:
             health_check_url = project_info.get('health_check_url')
             if health_check_url and metrics.is_running:
-                # TODO: Implement HTTP health check
-                # For now, assume healthy if process is running
-                pass
+                self._perform_http_health_check(metrics, health_check_url)
                 
         except Exception as e:
             logger.error(f"Error collecting health metrics for project {metrics.project_name}: {e}")
+    
+    def _perform_http_health_check(self, metrics: ProjectMetrics, health_check_url: str):
+        """Perform HTTP health check for the project."""
+        try:
+            start_time = time.time()
+            
+            # Configure timeout and retries
+            timeout = 10  # seconds
+            
+            # Make HTTP request
+            response = requests.get(
+                health_check_url,
+                timeout=timeout,
+                allow_redirects=True
+            )
+            
+            response_time_ms = (time.time() - start_time) * 1000
+            
+            # Update metrics
+            metrics.health_check_last_checked = datetime.utcnow()
+            metrics.health_check_response_time_ms = response_time_ms
+            
+            # Check if response indicates health
+            # Typically, HTTP 200-299 status codes indicate healthy
+            if 200 <= response.status_code < 300:
+                metrics.health_check_status = True
+                metrics.health_check_error = None
+                logger.debug(f"Health check passed for {metrics.project_name}: {response.status_code} in {response_time_ms:.1f}ms")
+            else:
+                metrics.health_check_status = False
+                metrics.health_check_error = f"HTTP {response.status_code}: {response.reason}"
+                logger.warning(f"Health check failed for {metrics.project_name}: {metrics.health_check_error}")
+                
+        except requests.exceptions.ConnectionError as e:
+            metrics.health_check_status = False
+            metrics.health_check_error = f"Connection error: {str(e)}"
+            metrics.health_check_last_checked = datetime.utcnow()
+            metrics.health_check_response_time_ms = None
+            logger.warning(f"Health check connection failed for {metrics.project_name}: {e}")
+            
+        except requests.exceptions.Timeout as e:
+            metrics.health_check_status = False
+            metrics.health_check_error = f"Timeout after {timeout}s"
+            metrics.health_check_last_checked = datetime.utcnow()
+            metrics.health_check_response_time_ms = None
+            logger.warning(f"Health check timeout for {metrics.project_name}: {e}")
+            
+        except requests.exceptions.RequestException as e:
+            metrics.health_check_status = False
+            metrics.health_check_error = f"Request error: {str(e)}"
+            metrics.health_check_last_checked = datetime.utcnow()
+            metrics.health_check_response_time_ms = None
+            logger.error(f"Health check request failed for {metrics.project_name}: {e}")
+            
+        except Exception as e:
+            metrics.health_check_status = False
+            metrics.health_check_error = f"Unexpected error: {str(e)}"
+            metrics.health_check_last_checked = datetime.utcnow()
+            metrics.health_check_response_time_ms = None
+            logger.error(f"Unexpected error during health check for {metrics.project_name}: {e}")
     
     def _calculate_health_score(self, metrics: ProjectMetrics, project_info: Dict) -> float:
         """Calculate overall health score for the project."""
@@ -363,6 +428,16 @@ class ProjectMonitor(MetricsCollector):
         elif metrics.restart_count > 5:
             score -= 5.0
         
+        # Penalty for failed health checks
+        if metrics.health_check_status is not None:
+            if not metrics.health_check_status:
+                score -= 15.0
+            # Penalty for slow health check response
+            elif metrics.health_check_response_time_ms and metrics.health_check_response_time_ms > 5000:
+                score -= 10.0
+            elif metrics.health_check_response_time_ms and metrics.health_check_response_time_ms > 2000:
+                score -= 5.0
+        
         return max(0.0, min(100.0, score))
     
     def _project_metrics_to_system_metrics(self, project_metrics: ProjectMetrics) -> List[SystemMetric]:
@@ -399,6 +474,13 @@ class ProjectMonitor(MetricsCollector):
             SystemMetric(project_metrics.timestamp, 'project', 'log_size_mb', project_metrics.log_size_mb, 'mb', tags),
             SystemMetric(project_metrics.timestamp, 'project', 'log_entries_per_minute', project_metrics.log_entries_per_minute, 'lpm', tags)
         ])
+        
+        # Health check metrics
+        if project_metrics.health_check_status is not None:
+            metrics.append(SystemMetric(project_metrics.timestamp, 'project', 'health_check_status', 1.0 if project_metrics.health_check_status else 0.0, 'boolean', tags))
+        
+        if project_metrics.health_check_response_time_ms is not None:
+            metrics.append(SystemMetric(project_metrics.timestamp, 'project', 'health_check_response_time_ms', project_metrics.health_check_response_time_ms, 'ms', tags))
         
         # Health score
         metrics.append(SystemMetric(project_metrics.timestamp, 'project', 'health_score', project_metrics.health_score, 'score', tags))
