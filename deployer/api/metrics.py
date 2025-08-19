@@ -90,7 +90,7 @@ def get_system_metrics():
 
 
 @metrics_bp.route('/projects', methods=['GET'])
-@permission_required(PermissionEnum.PROJECT_VIEW)
+@permission_required(PermissionEnum.PROJECT_READ)
 @audit_action('view_project_metrics', 'metrics')
 def get_projects_metrics():
     """Get metrics for all monitored projects."""
@@ -145,7 +145,7 @@ def get_projects_metrics():
 
 
 @metrics_bp.route('/project/<project_name>', methods=['GET'])
-@permission_required(PermissionEnum.PROJECT_VIEW)
+@permission_required(PermissionEnum.PROJECT_READ)
 @audit_action('view_specific_project_metrics', 'metrics')
 def get_project_metrics(project_name: str):
     """Get detailed metrics for a specific project."""

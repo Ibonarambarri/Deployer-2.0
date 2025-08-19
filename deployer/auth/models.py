@@ -38,6 +38,7 @@ class PermissionEnum(enum.Enum):
     # System permissions
     SYSTEM_MONITOR = "system:monitor"
     SYSTEM_CONFIG = "system:config"
+    SYSTEM_MANAGE = "system:manage"
     
     # User permissions
     USER_CREATE = "user:create"
