@@ -6,11 +6,18 @@ from deployer.services.project_service import ProjectService, ProjectServiceErro
 from deployer.services.process_service import ProcessService, ProcessServiceError
 from deployer.utils.validators import validate_github_url, validate_project_name
 from deployer.models.project_config import ProjectConfig
+from deployer.auth.decorators import (
+    token_required, permission_required, audit_action, 
+    developer_or_admin_required, optional_auth
+)
+from deployer.auth.models import PermissionEnum
 
 projects_bp = Blueprint('projects', __name__)
 
 
 @projects_bp.route('/', methods=['GET'])
+@optional_auth  # Allow viewing with or without auth, but some features may be limited
+@audit_action('view_projects', 'project')
 def get_projects():
     """Get all projects with current status."""
     try:
@@ -38,6 +45,8 @@ def get_projects():
 
 
 @projects_bp.route('/', methods=['POST'])
+@permission_required(PermissionEnum.PROJECT_CREATE)
+@audit_action('create_project', 'project')
 def create_project():
     """Create new project from GitHub repository."""
     try:
@@ -69,6 +78,8 @@ def create_project():
 
 
 @projects_bp.route('/<project_name>', methods=['GET'])
+@permission_required(PermissionEnum.PROJECT_READ)
+@audit_action('view_project', 'project')
 def get_project(project_name):
     """Get specific project."""
     try:
@@ -85,6 +96,8 @@ def get_project(project_name):
 
 
 @projects_bp.route('/<project_name>', methods=['DELETE'])
+@permission_required(PermissionEnum.PROJECT_DELETE)
+@audit_action('delete_project', 'project')
 def delete_project(project_name):
     """Delete project."""
     try:
@@ -109,6 +122,8 @@ def delete_project(project_name):
 
 
 @projects_bp.route('/<project_name>/update', methods=['POST'])
+@permission_required(PermissionEnum.PROJECT_UPDATE)
+@audit_action('update_project', 'project')
 def update_project(project_name):
     """Update project from Git repository."""
     try:
@@ -124,6 +139,8 @@ def update_project(project_name):
 
 
 @projects_bp.route('/<project_name>/venv', methods=['POST'])
+@developer_or_admin_required
+@audit_action('create_venv', 'project')
 def create_venv(project_name):
     """Create virtual environment for project."""
     try:
@@ -142,6 +159,8 @@ def create_venv(project_name):
 
 
 @projects_bp.route('/<project_name>/venv', methods=['DELETE'])
+@developer_or_admin_required
+@audit_action('delete_venv', 'project')
 def delete_venv(project_name):
     """Delete virtual environment for project."""
     try:
@@ -160,6 +179,8 @@ def delete_venv(project_name):
 
 
 @projects_bp.route('/<project_name>/install', methods=['POST'])
+@developer_or_admin_required
+@audit_action('install_requirements', 'project')
 def install_requirements(project_name):
     """Install requirements for project."""
     try:
@@ -178,6 +199,8 @@ def install_requirements(project_name):
 
 
 @projects_bp.route('/<project_name>/start', methods=['POST'])
+@permission_required(PermissionEnum.PROCESS_START)
+@audit_action('start_project', 'process')
 def start_project(project_name):
     """Start project execution."""
     try:
@@ -202,6 +225,8 @@ def start_project(project_name):
 
 
 @projects_bp.route('/<project_name>/stop', methods=['POST'])
+@permission_required(PermissionEnum.PROCESS_STOP)
+@audit_action('stop_project', 'process')
 def stop_project(project_name):
     """Stop project execution."""
     try:
@@ -221,6 +246,8 @@ def stop_project(project_name):
 
 
 @projects_bp.route('/<project_name>/logs', methods=['GET'])
+@permission_required(PermissionEnum.PROCESS_LOGS)
+@audit_action('view_project_logs', 'process')
 def get_project_logs(project_name):
     """Get project logs with optional pagination."""
     try:
@@ -283,6 +310,8 @@ def get_project_config(project_name):
 
 
 @projects_bp.route('/<project_name>/config', methods=['PUT'])
+@permission_required(PermissionEnum.PROJECT_UPDATE)
+@audit_action('update_project_config', 'project')
 def update_project_config(project_name):
     """Update project configuration."""
     try:

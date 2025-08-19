@@ -9,6 +9,9 @@ from typing import List, Optional, Dict, Any
 import git
 
 from deployer.models.project import Project
+from deployer.models.project_adapter import HybridProject, ProjectAdapter
+from deployer.database.models import Project as DBProject
+from deployer.database.database import db_session_scope
 from deployer.utils.validators import (
     validate_github_url, validate_project_name, validate_project_path
 )
@@ -45,27 +48,57 @@ class ProjectService:
     
     def get_all_projects(self) -> List[Project]:
         """
-        Get all projects from vault directory.
+        Get all projects from vault directory and database.
         
         Returns:
             List of Project instances
         """
         projects = []
         
+        # First, try to load from database
+        try:
+            with db_session_scope() as session:
+                db_projects = session.query(DBProject).all()
+                for db_project in db_projects:
+                    try:
+                        # Check if project directory still exists
+                        project_path = Path(db_project.path)
+                        if project_path.exists():
+                            legacy_project = ProjectAdapter.db_to_legacy(db_project, load_logs=False)
+                            hybrid_project = HybridProject(legacy_project)
+                            projects.append(hybrid_project)
+                            self._projects_cache[hybrid_project.name] = hybrid_project
+                        else:
+                            print(f"Project directory not found for {db_project.name}, skipping database entry")
+                    except Exception as e:
+                        print(f"Error loading project {db_project.name} from database: {e}")
+                        continue
+        except Exception as e:
+            print(f"Error loading projects from database: {e}")
+        
+        # Fallback to filesystem scan for projects not in database
         if not self.vault_path.exists():
             return projects
         
         try:
+            existing_names = {p.name for p in projects}
+            
             for item_path in self.vault_path.iterdir():
                 if item_path.is_dir() and not item_path.name.startswith('.'):
+                    project_name = item_path.name
+                    
+                    # Skip if already loaded from database
+                    if project_name in existing_names:
+                        continue
+                    
                     try:
-                        project = Project.from_directory(item_path)
-                        if project.is_valid():
-                            projects.append(project)
-                            self._projects_cache[project.name] = project
+                        legacy_project = Project.from_directory(item_path)
+                        if legacy_project.is_valid():
+                            hybrid_project = HybridProject(legacy_project)
+                            projects.append(hybrid_project)
+                            self._projects_cache[hybrid_project.name] = hybrid_project
                     except Exception as e:
-                        # Log error but continue with other projects
-                        print(f"Error loading project {item_path.name}: {e}")
+                        print(f"Error loading project {item_path.name} from filesystem: {e}")
                         continue
         
         except Exception as e:
@@ -75,7 +108,7 @@ class ProjectService:
     
     def get_project(self, name: str) -> Optional[Project]:
         """
-        Get project by name.
+        Get project by name from cache, database, or filesystem.
         
         Args:
             name: Project name
@@ -87,18 +120,38 @@ class ProjectService:
         if name in self._projects_cache:
             project = self._projects_cache[name]
             project.refresh_status()
+            if hasattr(project, 'refresh_from_db'):
+                project.refresh_from_db()
             return project
         
-        # Load from filesystem
+        # Try loading from database
+        try:
+            with db_session_scope() as session:
+                db_project = session.query(DBProject).filter_by(name=name).first()
+                if db_project:
+                    project_path = Path(db_project.path)
+                    if project_path.exists():
+                        legacy_project = ProjectAdapter.db_to_legacy(db_project, load_logs=True)
+                        hybrid_project = HybridProject(legacy_project)
+                        hybrid_project.refresh_status()
+                        self._projects_cache[name] = hybrid_project
+                        return hybrid_project
+                    else:
+                        print(f"Project directory not found for {name}, skipping database entry")
+        except Exception as e:
+            print(f"Error loading project {name} from database: {e}")
+        
+        # Fallback to filesystem
         project_path = secure_path_join(self.vault_path, name)
         if not project_path or not project_path.exists():
             return None
         
         try:
-            project = Project.from_directory(project_path)
-            if project.is_valid():
-                self._projects_cache[name] = project
-                return project
+            legacy_project = Project.from_directory(project_path)
+            if legacy_project.is_valid():
+                hybrid_project = HybridProject(legacy_project)
+                self._projects_cache[name] = hybrid_project
+                return hybrid_project
         except Exception:
             pass
         
@@ -159,9 +212,14 @@ class ProjectService:
         
         # Create project instance
         try:
-            project = Project.from_directory(project_path)
-            self._projects_cache[project.name] = project
-            return project
+            legacy_project = Project.from_directory(project_path)
+            hybrid_project = HybridProject(legacy_project)
+            self._projects_cache[hybrid_project.name] = hybrid_project
+            
+            # Add creation log
+            hybrid_project.add_log_entry(f"Project created from {github_url}", "INFO")
+            
+            return hybrid_project
         except Exception as e:
             # Cleanup on failure
             if project_path.exists():
@@ -194,7 +252,22 @@ class ProjectService:
             raise ProjectServiceError("Project path is not safe for deletion")
         
         try:
+            # Add deletion log before removing
+            if hasattr(project, 'add_log_entry'):
+                project.add_log_entry("Project deleted", "INFO")
+            
+            # Delete from database first
+            try:
+                with db_session_scope() as session:
+                    db_project = session.query(DBProject).filter_by(name=name).first()
+                    if db_project:
+                        session.delete(db_project)
+            except Exception as e:
+                print(f"Warning: Could not delete project from database: {e}")
+            
+            # Delete filesystem directory
             shutil.rmtree(project.path)
+            
             # Remove from cache
             self._projects_cache.pop(name, None)
             return True
@@ -228,6 +301,11 @@ class ProjectService:
             
             # Refresh project status
             project.refresh_status()
+            
+            # Add update log
+            if hasattr(project, 'add_log_entry'):
+                project.add_log_entry("Project updated from Git repository", "INFO")
+            
             return project
         
         except Exception as e:
@@ -270,6 +348,11 @@ class ProjectService:
             
             # Update project status
             project.refresh_status()
+            
+            # Add log entry
+            if hasattr(project, 'add_log_entry'):
+                project.add_log_entry("Virtual environment created successfully", "INFO")
+            
             return True
         
         except subprocess.TimeoutExpired:
@@ -305,6 +388,11 @@ class ProjectService:
         try:
             shutil.rmtree(venv_path)
             project.refresh_status()
+            
+            # Add log entry
+            if hasattr(project, 'add_log_entry'):
+                project.add_log_entry("Virtual environment deleted", "INFO")
+            
             return True
         except Exception as e:
             raise ProjectServiceError(f"Failed to delete virtual environment: {e}")
@@ -345,6 +433,10 @@ class ProjectService:
             
             if result.returncode != 0:
                 raise ProjectServiceError(f"Failed to install requirements: {result.stderr}")
+            
+            # Add log entry
+            if hasattr(project, 'add_log_entry'):
+                project.add_log_entry("Requirements installed successfully", "INFO")
             
             return True
         
