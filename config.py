@@ -34,14 +34,11 @@ class Config:
     LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO')
     LOG_FILE = os.environ.get('LOG_FILE', 'deployer.log')
     
-    # Database settings
-    DATABASE_URL = os.environ.get('DATABASE_URL', 'sqlite:///deployer.db')
-    DATABASE_ECHO = os.environ.get('DATABASE_ECHO', 'False').lower() == 'true'
-    DATABASE_POOL_SIZE = int(os.environ.get('DATABASE_POOL_SIZE', 5))
-    DATABASE_POOL_TIMEOUT = int(os.environ.get('DATABASE_POOL_TIMEOUT', 30))
-    DATABASE_BACKUP_ENABLED = os.environ.get('DATABASE_BACKUP_ENABLED', 'True').lower() == 'true'
-    DATABASE_BACKUP_INTERVAL_HOURS = int(os.environ.get('DATABASE_BACKUP_INTERVAL_HOURS', 24))
-    DATABASE_BACKUP_RETENTION_DAYS = int(os.environ.get('DATABASE_BACKUP_RETENTION_DAYS', 7))
+    # Storage settings
+    STORAGE_PATH = os.environ.get('STORAGE_PATH') or str(VAULT_PATH / 'data')
+    JSON_BACKUP_ENABLED = os.environ.get('JSON_BACKUP_ENABLED', 'True').lower() == 'true'
+    JSON_BACKUP_INTERVAL_HOURS = int(os.environ.get('JSON_BACKUP_INTERVAL_HOURS', 24))
+    JSON_BACKUP_RETENTION_DAYS = int(os.environ.get('JSON_BACKUP_RETENTION_DAYS', 7))
     
     
     # Rate limiting settings
@@ -83,7 +80,6 @@ class DevelopmentConfig(Config):
     
     DEBUG = True
     CORS_ORIGINS = ['*']  # Permitir todos los orígenes en desarrollo
-    DATABASE_ECHO = True  # Enable SQL logging in development
     DISABLE_RATE_LIMITING = True  # Disable rate limiting in development
 
 
@@ -105,8 +101,7 @@ class TestingConfig(Config):
     TESTING = True
     VAULT_PATH = Path('test_vault')
     PROCESSES_FILE = 'test_processes.json'
-    DATABASE_URL = 'sqlite:///:memory:'  # In-memory database for testing
-    DATABASE_BACKUP_ENABLED = False  # Disable backups in testing
+    JSON_BACKUP_ENABLED = False  # Disable backups in testing
     DISABLE_RATE_LIMITING = True  # Disable rate limiting in testing
 
 

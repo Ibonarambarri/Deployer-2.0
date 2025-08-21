@@ -2,10 +2,9 @@
 
 from flask import Blueprint, request, jsonify
 
-from deployer.services.project_service import ProjectService, ProjectServiceError
+from deployer.services.project_service_json import ProjectService, ProjectServiceError
 from deployer.services.process_service import ProcessService, ProcessServiceError
 from deployer.utils.validators import validate_github_url, validate_project_name
-from deployer.models.project_config import ProjectConfig
 
 projects_bp = Blueprint('projects', __name__)
 

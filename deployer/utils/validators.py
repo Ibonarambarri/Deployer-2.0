@@ -13,7 +13,7 @@ class ValidationError(ValueError):
 
 def validate_github_url(url: str) -> bool:
     """
-    Validate GitHub repository URL.
+    Validate repository URL (GitHub or local).
     
     Args:
         url: URL to validate
@@ -24,25 +24,39 @@ def validate_github_url(url: str) -> bool:
     if not url:
         return False
     
-    # Parse URL
+    # Allow local file paths for testing
+    if url.startswith('file://') or url.startswith('/'):
+        try:
+            # For local paths, just check if they exist
+            local_path = url.replace('file://', '') if url.startswith('file://') else url
+            return Path(local_path).exists()
+        except Exception:
+            return False
+    
+    # Parse URL for remote repositories
     try:
         parsed = urlparse(url)
     except Exception:
         return False
     
-    # Check basic structure
-    if parsed.scheme not in ['https', 'http']:
-        return False
+    # Check GitHub URLs
+    if parsed.netloc == 'github.com':
+        # Check basic structure
+        if parsed.scheme not in ['https', 'http']:
+            return False
+        
+        # Check path pattern (user/repo or user/repo.git)
+        path_pattern = r'^/[\w\-\.]+/[\w\-\.]+(?:\.git)?/?$'
+        if not re.match(path_pattern, parsed.path):
+            return False
+        
+        return True
     
-    if parsed.netloc != 'github.com':
-        return False
+    # For other Git URLs, do basic validation
+    if parsed.scheme in ['https', 'http', 'git', 'ssh']:
+        return True
     
-    # Check path pattern (user/repo or user/repo.git)
-    path_pattern = r'^/[\w\-\.]+/[\w\-\.]+(?:\.git)?/?$'
-    if not re.match(path_pattern, parsed.path):
-        return False
-    
-    return True
+    return False
 
 
 def validate_project_name(name: str) -> str:

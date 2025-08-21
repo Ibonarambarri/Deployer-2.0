@@ -8,8 +8,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, Optional, Any, List
 
-from deployer.models.project import Project, LogEntry
-from deployer.models.project_adapter import LogAdapter
+from deployer.models.project_json import Project, LogEntry
+from deployer.storage.json_storage import get_log_storage
 from deployer.utils.security import sanitize_environment_variables
 
 
@@ -29,22 +29,27 @@ class ProcessInfo:
         self._log_lock = threading.Lock()
     
     def add_log(self, message: str, level: str = 'INFO') -> None:
-        """Add log entry thread-safely and persist to database."""
+        """Add log entry thread-safely and persist to storage."""
         with self._log_lock:
-            log_entry = LogEntry(
-                timestamp=datetime.now().isoformat(),
+            log_entry = LogEntry.create(
                 message=message,
-                level=level
+                level=level,
+                source='process',
+                project_name=self.project_name
             )
             self.logs.append(log_entry)
             
-            # Persist to database
-            LogAdapter.add_log_to_db(
-                project_name=self.project_name,
-                message=message,
-                level=level,
-                source='process'
-            )
+            # Persist to JSON storage
+            try:
+                log_storage = get_log_storage()
+                log_storage.add_log_entry(
+                    project_name=self.project_name,
+                    message=message,
+                    level=level,
+                    source='process'
+                )
+            except Exception as e:
+                print(f"Error saving log to storage: {e}")
             
             # Keep only recent logs to prevent memory issues
             if len(self.logs) > 500:
@@ -106,7 +111,7 @@ class ProcessService:
         Raises:
             ProcessServiceError: If start fails
         """
-        with self._log_lock:
+        with self._lock:
             # Check if already running
             if project.name in self.running_processes:
                 raise ProcessServiceError("Project is already running")
@@ -154,16 +159,21 @@ class ProcessService:
                 project.pid = process.pid
                 project.started_at = process_info.started_at
                 
-                # Add startup log to database
-                if hasattr(project, 'add_log_entry'):
-                    project.add_log_entry(f"Project started (PID: {process.pid})", "INFO")
-                else:
-                    LogAdapter.add_log_to_db(
+                # Add startup log to storage
+                try:
+                    log_storage = get_log_storage()
+                    log_storage.add_log_entry(
                         project_name=project.name,
                         message=f"Project started (PID: {process.pid})",
                         level="INFO",
                         source="process_service"
                     )
+                except Exception as e:
+                    print(f"Error saving startup log: {e}")
+                
+                # Start WebSocket log monitoring
+                from deployer.services.log_service import LogService
+                LogService.start_log_monitoring(project.name)
                 
                 # Save state
                 self._save_processes()
@@ -197,7 +207,7 @@ class ProcessService:
         Raises:
             ProcessServiceError: If stop fails
         """
-        with self._log_lock:
+        with self._lock:
             if project_name not in self.running_processes:
                 raise ProcessServiceError("Project is not running")
             
@@ -215,13 +225,21 @@ class ProcessService:
                     process_info.process.kill()
                     process_info.process.wait()
                 
-                # Add shutdown log to database
-                LogAdapter.add_log_to_db(
-                    project_name=project_name,
-                    message="Project stopped",
-                    level="INFO",
-                    source="process_service"
-                )
+                # Add shutdown log to storage
+                try:
+                    log_storage = get_log_storage()
+                    log_storage.add_log_entry(
+                        project_name=project_name,
+                        message="Project stopped",
+                        level="INFO",
+                        source="process_service"
+                    )
+                except Exception as e:
+                    print(f"Error saving shutdown log: {e}")
+                
+                # Stop WebSocket log monitoring
+                from deployer.services.log_service import LogService
+                LogService.stop_log_monitoring(project_name)
                 
                 # Remove from running processes
                 del self.running_processes[project_name]
@@ -271,7 +289,7 @@ class ProcessService:
     
     def cleanup_finished_processes(self) -> None:
         """Clean up processes that have finished."""
-        with self._log_lock:
+        with self._lock:
             finished_projects = []
             
             for project_name, process_info in self.running_processes.items():
@@ -279,13 +297,17 @@ class ProcessService:
                     finished_projects.append(project_name)
             
             for project_name in finished_projects:
-                # Add finished log to database
-                LogAdapter.add_log_to_db(
-                    project_name=project_name,
-                    message="Project process finished",
-                    level="INFO",
-                    source="process_service"
-                )
+                # Add finished log to storage
+                try:
+                    log_storage = get_log_storage()
+                    log_storage.add_log_entry(
+                        project_name=project_name,
+                        message="Project process finished",
+                        level="INFO",
+                        source="process_service"
+                    )
+                except Exception as e:
+                    print(f"Error saving finished log: {e}")
                 del self.running_processes[project_name]
             
             if finished_projects:
@@ -311,6 +333,10 @@ class ProcessService:
                 line = line.strip()
                 if line:  # Only process non-empty lines
                     process_info.add_log(line)
+                    
+                    # Also send to WebSocket clients
+                    from deployer.services.log_service import LogService
+                    LogService.add_log_entry(process_info.project_name, line)
         
         except Exception as e:
             process_info.add_log(f"Error reading output: {e}", 'ERROR')

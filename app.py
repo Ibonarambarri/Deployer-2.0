@@ -33,12 +33,14 @@ if __name__ == '__main__':
     print(f"Starting Deployer on http://{host}:{port}")
     print(f"Debug mode: {debug}")
     print(f"Vault path: {app.config['VAULT_PATH']}")
-    print("🚀 Using HTTP polling instead of WebSockets")
+    print("🚀 Using WebSockets for real-time logs")
     
-    # Run the standard Flask application
-    app.run(
+    # Run the SocketIO application
+    app.socketio.run(
+        app,
         host=host,
         port=port,
         debug=debug,
-        use_reloader=debug
+        use_reloader=debug,
+        allow_unsafe_werkzeug=True
     )

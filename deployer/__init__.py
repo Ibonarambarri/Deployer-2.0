@@ -6,6 +6,7 @@ from pathlib import Path
 
 from flask import Flask
 from flask_cors import CORS
+from flask_socketio import SocketIO
 
 from config import config
 
@@ -31,19 +32,25 @@ def create_app(config_name=None):
         r"/*": {"origins": app.config['CORS_ORIGINS']}
     })
     
+    # Initialize SocketIO
+    socketio = SocketIO(app, cors_allowed_origins=app.config['CORS_ORIGINS'])
+    app.socketio = socketio
+    
     # Register blueprints
     register_blueprints(app)
+    
+    # Register WebSocket events
+    register_socketio_events(socketio)
     
     # Register error handlers
     register_error_handlers(app)
     
-    # Initialize database
-    initialize_database(app)
-    
+    # Initialize JSON storage
+    initialize_json_storage(app)
     
     # Initialize services
     from deployer.services.process_service import ProcessService
-    from deployer.services.project_service import ProjectService
+    from deployer.services.project_service_json import ProjectService
     from deployer.utils.security import SecurityContext
     
     vault_path = Path(app.config['VAULT_PATH'])
@@ -52,7 +59,31 @@ def create_app(config_name=None):
     ProcessService.initialize(app.config)
     ProjectService.initialize(vault_path, security_context)
     
+    # Start background log monitoring
+    start_background_tasks(socketio)
+    
     return app
+
+
+def start_background_tasks(socketio):
+    """Start background tasks for log monitoring."""
+    import threading
+    import time
+    
+    def log_monitoring_task():
+        """Background task to check for new logs."""
+        from deployer.services.log_service import LogService
+        
+        while True:
+            try:
+                LogService.check_for_new_logs()
+            except Exception as e:
+                print(f"Error in log monitoring: {e}")
+            time.sleep(1)  # Check every second
+    
+    # Start the background thread
+    log_thread = threading.Thread(target=log_monitoring_task, daemon=True)
+    log_thread.start()
 
 
 def configure_logging(app):
@@ -86,6 +117,12 @@ def register_blueprints(app):
     app.register_blueprint(system_bp, url_prefix='/api/system')
 
 
+def register_socketio_events(socketio):
+    """Register WebSocket event handlers."""
+    from deployer.websocket.events import register_events
+    register_events(socketio)
+
+
 def register_error_handlers(app):
     """Register error handlers."""
     
@@ -103,32 +140,17 @@ def register_error_handlers(app):
         return {'error': 'Internal server error'}, 500
 
 
-def initialize_database(app):
-    """Initialize database connection and create tables if needed."""
-    from deployer.database.database import initialize_database as init_db, ensure_database_directory
-    from deployer.database.migrations import get_migration_manager
+def initialize_json_storage(app):
+    """Initialize JSON-based storage system."""
+    from deployer.storage.json_storage import initialize_storage
     
-    # Ensure database directory exists
-    ensure_database_directory(app.config['DATABASE_URL'])
+    # Use configured storage path or default to vault/data
+    storage_path = Path(app.config.get('STORAGE_PATH', app.config['VAULT_PATH'] / 'data'))
     
-    # Initialize database manager
-    db_manager = init_db(
-        database_url=app.config['DATABASE_URL'],
-        echo=app.config.get('DATABASE_ECHO', False)
-    )
+    # Initialize JSON storage
+    initialize_storage(str(storage_path))
     
-    # Create tables
-    db_manager.create_all_tables()
-    
-    # Run migrations if needed
-    migration_manager = get_migration_manager()
-    pending_count = len(migration_manager.get_pending_migrations())
-    
-    if pending_count > 0:
-        app.logger.info(f"Running {pending_count} pending database migrations")
-        migration_manager.migrate()
-    
-    app.logger.info("Database initialized successfully")
+    app.logger.info(f"JSON storage initialized at: {storage_path}")
 
 
 
