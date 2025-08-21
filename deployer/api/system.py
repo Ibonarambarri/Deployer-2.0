@@ -3,15 +3,11 @@
 from flask import Blueprint, jsonify
 
 from deployer.services.process_service import ProcessService
-from deployer.auth.decorators import permission_required, audit_action, admin_required
-from deployer.auth.models import PermissionEnum
 
 system_bp = Blueprint('system', __name__)
 
 
 @system_bp.route('/stats', methods=['GET'])
-@permission_required(PermissionEnum.SYSTEM_MONITOR)
-@audit_action('view_system_stats', 'system')
 def get_system_stats():
     """Get system statistics."""
     try:
@@ -25,8 +21,6 @@ def get_system_stats():
 
 
 @system_bp.route('/running', methods=['GET'])
-@permission_required(PermissionEnum.SYSTEM_MONITOR)
-@audit_action('view_running_projects', 'system')
 def get_running_projects():
     """Get list of currently running projects."""
     try:
@@ -40,8 +34,6 @@ def get_running_projects():
 
 
 @system_bp.route('/cleanup', methods=['POST'])
-@admin_required
-@audit_action('system_cleanup', 'system')
 def cleanup_finished():
     """Clean up finished processes."""
     try:

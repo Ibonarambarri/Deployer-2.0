@@ -5,7 +5,7 @@ from collections import defaultdict, deque
 from typing import Dict, Optional, Tuple
 from flask import Flask, request, jsonify, current_app, g
 
-from deployer.middleware.auth import get_current_user_id
+# Auth removed - using IP-based rate limiting only
 
 
 class RateLimitMiddleware:
@@ -30,9 +30,7 @@ class RateLimitMiddleware:
         # Default rate limits (can be overridden in config)
         self.default_limits = {
             'per_minute': 60,
-            'per_hour': 1000,
-            'auth_per_minute': 5,  # Stricter for auth endpoints
-            'admin_per_minute': 120  # More lenient for admins
+            'per_hour': 1000
         }
         
         if app is not None:
@@ -68,8 +66,7 @@ class RateLimitMiddleware:
         # Check different rate limits
         rate_limit_checks = [
             self._check_per_minute_limit(client_key),
-            self._check_per_hour_limit(client_key),
-            self._check_auth_limit(client_key),
+            self._check_per_hour_limit(client_key)
         ]
         
         for check_result in rate_limit_checks:
@@ -88,12 +85,7 @@ class RateLimitMiddleware:
         Returns:
             Client identifier string
         """
-        # Use user ID if authenticated
-        user_id = get_current_user_id()
-        if user_id:
-            return f"user_{user_id}"
-        
-        # Fall back to IP address
+        # Use IP address for identification
         client_ip = self._get_client_ip()
         return f"ip_{client_ip}"
     
@@ -145,12 +137,7 @@ class RateLimitMiddleware:
         now = time.time()
         minute_ago = now - 60
         
-        # Get user's role for different limits
-        user = g.get('current_user')
-        if user and user.role.value == 'admin':
-            limit = self.default_limits['admin_per_minute']
-        else:
-            limit = self.default_limits['per_minute']
+        limit = self.default_limits['per_minute']
         
         key = f"{client_key}_minute"
         return self._check_limit(key, minute_ago, limit, "minute")
@@ -172,26 +159,6 @@ class RateLimitMiddleware:
         key = f"{client_key}_hour"
         return self._check_limit(key, hour_ago, limit, "hour")
     
-    def _check_auth_limit(self, client_key: str) -> Optional[tuple]:
-        """
-        Check authentication endpoint specific limit.
-        
-        Args:
-            client_key: Client identifier
-            
-        Returns:
-            Error response if limit exceeded
-        """
-        # Only apply to auth endpoints
-        if not request.path.startswith('/api/auth/'):
-            return None
-        
-        now = time.time()
-        minute_ago = now - 60
-        
-        limit = self.default_limits['auth_per_minute']
-        key = f"{client_key}_auth"
-        return self._check_limit(key, minute_ago, limit, "minute", "authentication")
     
     def _check_limit(
         self, 
@@ -251,10 +218,6 @@ class RateLimitMiddleware:
         # Record for different time windows
         self._requests[f"{client_key}_minute"].append(now)
         self._requests[f"{client_key}_hour"].append(now)
-        
-        # Record for auth endpoints
-        if request.path.startswith('/api/auth/'):
-            self._requests[f"{client_key}_auth"].append(now)
     
     def cleanup_old_requests(self) -> None:
         """Clean up old request records to free memory."""
@@ -292,16 +255,13 @@ class RateLimitMiddleware:
         # Count requests in different windows
         minute_requests = sum(1 for t in self._requests[f"{client_key}_minute"] if t > minute_ago)
         hour_requests = sum(1 for t in self._requests[f"{client_key}_hour"] if t > hour_ago)
-        auth_requests = sum(1 for t in self._requests[f"{client_key}_auth"] if t > minute_ago)
         
         return {
             'requests_last_minute': minute_requests,
             'requests_last_hour': hour_requests,
-            'auth_requests_last_minute': auth_requests,
             'limits': {
                 'per_minute': self.default_limits['per_minute'],
-                'per_hour': self.default_limits['per_hour'],
-                'auth_per_minute': self.default_limits['auth_per_minute']
+                'per_hour': self.default_limits['per_hour']
             }
         }
 

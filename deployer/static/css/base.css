@@ -7,7 +7,7 @@
 
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, system-ui, sans-serif;
-    background: #0f0f0f;
+    background: #0a0a0a;
     color: #ffffff;
     line-height: 1.5;
     overflow-x: hidden;
@@ -18,15 +18,14 @@ body {
 .app-layout {
     display: flex;
     height: 100vh;
-    background: linear-gradient(135deg, #0f0f0f 0%, #1a1a1a 50%, #0f0f0f 100%);
+    background: #0a0a0a;
 }
 
 /* Sidebar Styles */
 .sidebar {
-    width: 300px;
-    background: rgba(255, 255, 255, 0.02);
-    backdrop-filter: blur(20px);
-    border-right: 1px solid rgba(255, 255, 255, 0.1);
+    width: 280px;
+    background: #131313;
+    border-right: 1px solid #2a2a2a;
     display: flex;
     flex-direction: column;
     transition: width 0.3s ease;
@@ -38,7 +37,7 @@ body {
 
 .sidebar-header {
     padding: 1.5rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid #2a2a2a;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -51,8 +50,17 @@ body {
 
 .logo {
     font-size: 1.5rem;
-    font-weight: 600;
-    background: linear-gradient(135deg, #ffffff 0%, #888 100%);
+    font-weight: 700;
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.logo::before {
+    content: '⚡';
+    font-size: 1.8rem;
+    background: linear-gradient(135deg, #ff6b35, #f7931e);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
 }
@@ -84,13 +92,16 @@ body {
 }
 
 .project-item {
-    padding: 0.75rem 1.5rem;
+    padding: 1rem 1.5rem;
     cursor: pointer;
     transition: all 0.2s ease;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid #2a2a2a;
     display: flex;
     align-items: center;
     gap: 0.75rem;
+    border-radius: 0;
+    margin: 0 1rem;
+    margin-bottom: 0.5rem;
 }
 
 .sidebar.collapsed .project-item {
@@ -99,12 +110,14 @@ body {
 }
 
 .project-item:hover {
-    background: rgba(255, 255, 255, 0.05);
+    background: #1f1f1f;
+    border-radius: 8px;
 }
 
 .project-item.active {
-    background: rgba(99, 102, 241, 0.2);
-    border-right: 3px solid #6366f1;
+    background: #1f1f1f;
+    border-left: 3px solid #ff6b35;
+    border-radius: 8px;
 }
 
 .project-status {
@@ -169,23 +182,24 @@ body {
 
 .add-project-btn {
     margin: 1rem;
-    padding: 0.75rem;
-    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    padding: 0.875rem;
+    background: linear-gradient(135deg, #ff6b35, #f7931e);
     border: none;
-    border-radius: 8px;
+    border-radius: 12px;
     color: white;
-    font-weight: 500;
+    font-weight: 600;
     cursor: pointer;
     transition: all 0.2s ease;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
+    font-size: 0.95rem;
 }
 
 .add-project-btn:hover {
     transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(99, 102, 241, 0.3);
+    box-shadow: 0 8px 25px rgba(255, 107, 53, 0.3);
 }
 
 .sidebar.collapsed .add-project-btn {
@@ -196,122 +210,31 @@ body {
     display: none;
 }
 
-/* User Section */
-.user-section {
+/* App Title Section */
+.app-title-section {
     position: fixed;
     top: 1rem;
     right: 1rem;
     z-index: 1000;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
     background: rgba(0, 0, 0, 0.8);
     backdrop-filter: blur(10px);
-    padding: 0.5rem 1rem;
-    border-radius: 8px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 0.75rem 1.5rem;
+    border-radius: 12px;
+    border: 1px solid #2a2a2a;
 }
 
-.user-info {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    color: #fff;
-    font-size: 0.875rem;
+.app-title {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #ffffff;
+    background: linear-gradient(135deg, #ffffff 0%, #ff6b35 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
-.user-avatar {
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-size: 0.75rem;
-    font-weight: 600;
-}
-
-.user-menu {
-    position: relative;
-}
-
-.user-menu-btn {
-    background: none;
-    border: none;
-    color: #888;
-    cursor: pointer;
-    padding: 0.25rem;
-    border-radius: 4px;
-    transition: all 0.2s ease;
-}
-
-.user-menu-btn:hover {
-    color: #fff;
-    background: rgba(255, 255, 255, 0.1);
-}
-
-.user-dropdown {
-    position: absolute;
-    top: 100%;
-    right: 0;
-    background: rgba(0, 0, 0, 0.9);
-    backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 8px;
-    min-width: 200px;
-    display: none;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
-    margin-top: 0.5rem;
-}
-
-.user-dropdown.show {
-    display: block;
-}
-
-.user-dropdown-item {
-    padding: 0.75rem 1rem;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    color: #fff;
-    text-decoration: none;
-}
-
-.user-dropdown-item:hover {
-    background: rgba(255, 255, 255, 0.1);
-}
-
-.user-dropdown-item:last-child {
-    border-bottom: none;
-}
-
-.login-section {
-    position: fixed;
-    top: 1rem;
-    right: 1rem;
-    z-index: 1000;
-}
-
-.login-btn {
-    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
-    border: none;
-    color: white;
-    padding: 0.5rem 1rem;
-    border-radius: 6px;
-    cursor: pointer;
-    font-weight: 500;
-    transition: all 0.2s ease;
-}
-
-.login-btn:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
-}
 
 /* Main Content */
 .main-content {
@@ -319,6 +242,7 @@ body {
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    background: #0a0a0a;
 }
 
 .content-header {
@@ -385,17 +309,119 @@ body {
     background: rgba(255, 255, 255, 0.1);
 }
 
+/* Card Effects */
+.card-shimmer {
+    position: relative;
+    overflow: hidden;
+}
+
+.card-shimmer::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 107, 53, 0.1), transparent);
+    animation: shimmer 3s infinite;
+    pointer-events: none;
+}
+
+@keyframes shimmer {
+    0% { left: -100%; }
+    100% { left: 100%; }
+}
+
+/* Improved scrollbars */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #1a1a1a;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #2a2a2a;
+    border-radius: 4px;
+    transition: background 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #ff6b35;
+}
+
 /* Responsive Design */
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
     .sidebar {
-        width: 250px;
+        width: 260px;
+    }
+}
+
+@media (max-width: 768px) {
+    .app-layout {
+        flex-direction: column;
+    }
+    
+    .sidebar {
+        width: 100%;
+        height: auto;
+        border-right: none;
+        border-bottom: 1px solid #2a2a2a;
     }
     
     .sidebar.collapsed {
-        width: 50px;
+        width: 100%;
+        height: 60px;
+    }
+    
+    .sidebar-header {
+        padding: 1rem 1.5rem;
+    }
+    
+    .projects-list {
+        display: flex;
+        overflow-x: auto;
+        padding: 0.5rem 1rem;
+    }
+    
+    .project-item {
+        margin: 0 0.5rem 0 0;
+        min-width: 200px;
+        border-radius: 8px;
+        border-bottom: 1px solid #2a2a2a;
+    }
+    
+    .main-content {
+        padding: 1rem;
     }
     
     .project-info-grid {
         grid-template-columns: 1fr;
     }
+    
+}
+
+@media (max-width: 480px) {
+    .sidebar-header {
+        padding: 0.75rem 1rem;
+    }
+    
+    .logo {
+        font-size: 1.25rem;
+    }
+    
+    .project-item {
+        padding: 0.75rem 1rem;
+        min-width: 180px;
+    }
+    
+    .add-project-btn {
+        margin: 0.5rem;
+        padding: 0.75rem;
+        font-size: 0.9rem;
+    }
+    
 }

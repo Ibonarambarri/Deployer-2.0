@@ -1,6 +1,6 @@
 /**
  * Deployer Main Application JavaScript
- * Handles project management, polling, logging, and authentication
+ * Handles project management, polling, and logging
  */
 
 // Global variables
@@ -13,9 +13,6 @@ let realtimeLogsInterval = null;
 let lastLogsCheck = {};
 let projectConfigs = {};
 
-// Authentication variables
-let currentUser = null;
-let authToken = null;
 
 // Polling system to replace WebSockets
 async function startPolling() {
@@ -854,10 +851,5 @@ function switchTab(tabName) {
         clickedTab.classList.add('active');
     }
 
-    // Handle metrics tab activation
-    if (tabName === 'metrics' && window.metricsDashboard) {
-        window.metricsDashboard.onMetricsTabActivated();
-    } else if (window.metricsDashboard) {
-        window.metricsDashboard.onMetricsTabDeactivated();
     }
 }

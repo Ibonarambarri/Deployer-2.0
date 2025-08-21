@@ -10,35 +10,14 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
     
-    <!-- Chart.js for metrics -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <!-- Global Alert -->
     <div id="alert" class="alert"></div>
 
-    <!-- Authentication Section -->
-    <div id="loginSection" class="login-section" style="display: none;">
-        <button class="login-btn" onclick="openLoginModal()">Login</button>
-    </div>
-
-    <!-- User Section -->
-    <div id="userSection" class="user-section" style="display: none;">
-        <div class="user-info">
-            <div class="user-avatar" id="userAvatar">U</div>
-            <span id="userName">User</span>
-        </div>
-        <div class="user-menu">
-            <button class="user-menu-btn" onclick="toggleUserMenu()">⋮</button>
-            <div class="user-dropdown" id="userDropdown">
-                <a href="#" class="user-dropdown-item" onclick="openProfile()">
-                    👤 Profile
-                </a>
-                <a href="#" class="user-dropdown-item" onclick="logout()">
-                    🚪 Logout
-                </a>
-            </div>
-        </div>
+    <!-- App Title Section -->
+    <div class="app-title-section">
+        <h1 class="app-title">Deployer Dashboard</h1>
     </div>
 
     <!-- Main Application Layout -->
@@ -53,7 +32,6 @@
             <!-- Navigation Tabs -->
             <div class="nav-tabs">
                 <button class="nav-tab active" onclick="switchTab('projects')">Projects</button>
-                <button class="nav-tab" onclick="switchTab('metrics')">Metrics</button>
             </div>
             
             <div class="projects-list" id="projectsList">
@@ -109,191 +87,6 @@
                 </div>
             </div>
             
-            <!-- Metrics Tab Content -->
-            <div id="metricsTab" class="tab-content" style="display: none;">
-                <div class="metrics-dashboard">
-                    <!-- Dashboard Header -->
-                    <div class="dashboard-header">
-                        <h1>System Metrics Dashboard</h1>
-                        <button class="refresh-btn" onclick="refreshMetrics()">🔄 Refresh</button>
-                    </div>
-
-                    <!-- Metrics Overview -->
-                    <div class="metrics-overview">
-                        <div class="metric-card">
-                            <h3>System CPU</h3>
-                            <div class="metric-value" id="systemCpuUsage">--</div>
-                            <div class="metric-unit">%</div>
-                        </div>
-                        <div class="metric-card">
-                            <h3>System Memory</h3>
-                            <div class="metric-value" id="systemMemoryUsage">--</div>
-                            <div class="metric-unit">%</div>
-                        </div>
-                        <div class="metric-card">
-                            <h3>System Disk</h3>
-                            <div class="metric-value" id="systemDiskUsage">--</div>
-                            <div class="metric-unit">%</div>
-                        </div>
-                        <div class="metric-card">
-                            <h3>Active Projects</h3>
-                            <div class="metric-value" id="activeProjectsCount">--</div>
-                            <div class="metric-unit">running</div>
-                        </div>
-                    </div>
-
-                    <!-- System Charts Section -->
-                    <div class="charts-section">
-                        <h2>System Performance</h2>
-                        <div class="chart-controls">
-                            <label for="systemTimeRange">Time Range:</label>
-                            <select id="systemTimeRange" onchange="updateSystemCharts()">
-                                <option value="1">Last Hour</option>
-                                <option value="6">Last 6 Hours</option>
-                                <option value="24" selected>Last 24 Hours</option>
-                                <option value="168">Last Week</option>
-                            </select>
-                        </div>
-                        <div class="charts-grid">
-                            <div class="chart-container">
-                                <canvas id="cpuChart"></canvas>
-                            </div>
-                            <div class="chart-container">
-                                <canvas id="memoryChart"></canvas>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Project Performance Section -->
-                    <div class="charts-section">
-                        <h2>Project Performance</h2>
-                        <div class="chart-controls">
-                            <label for="projectSelect">Project:</label>
-                            <select id="projectSelect" onchange="updateProjectCharts()">
-                                <option value="">All Projects</option>
-                            </select>
-                            <label for="projectTimeRange">Time Range:</label>
-                            <select id="projectTimeRange" onchange="updateProjectCharts()">
-                                <option value="1">Last Hour</option>
-                                <option value="6">Last 6 Hours</option>
-                                <option value="24" selected>Last 24 Hours</option>
-                                <option value="168">Last Week</option>
-                            </select>
-                        </div>
-                        <div class="charts-grid">
-                            <div class="chart-container">
-                                <canvas id="projectHealthChart"></canvas>
-                            </div>
-                            <div class="chart-container">
-                                <canvas id="projectResourceChart"></canvas>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Projects Table Section -->
-                    <div class="metrics-table-section">
-                        <h2>Project Metrics Summary</h2>
-                        <div class="table-container">
-                            <table id="projectsMetricsTable" class="metrics-table">
-                                <thead>
-                                    <tr>
-                                        <th>Project</th>
-                                        <th>Status</th>
-                                        <th>Health Score</th>
-                                        <th>CPU %</th>
-                                        <th>Memory</th>
-                                        <th>Uptime</th>
-                                        <th>Error Rate</th>
-                                        <th>Last Seen</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <!-- Data will be populated here -->
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    <!-- Health Checks Section -->
-                    <div class="health-section">
-                        <h2>Health Status</h2>
-                        <div class="health-overview">
-                            <div class="health-status-card">
-                                <div class="health-icon" id="overallHealthIcon">❓</div>
-                                <div class="health-text">
-                                    <div class="health-label">Overall Health</div>
-                                    <div class="health-value" id="overallHealthStatus">Unknown</div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="chart-controls">
-                            <label for="healthTimeRange">Time Range:</label>
-                            <select id="healthTimeRange" onchange="updateHealthChart()">
-                                <option value="1">Last Hour</option>
-                                <option value="6">Last 6 Hours</option>
-                                <option value="24" selected>Last 24 Hours</option>
-                            </select>
-                        </div>
-                        
-                        <div class="charts-grid">
-                            <div class="chart-container">
-                                <canvas id="healthStatusChart"></canvas>
-                            </div>
-                        </div>
-                        
-                        <div id="healthChecksGrid" class="health-checks-grid">
-                            <!-- Health check cards will be populated here -->
-                        </div>
-                    </div>
-
-                    <!-- Alerts Section -->
-                    <div class="alerts-section">
-                        <h2>Alerts & Notifications</h2>
-                        
-                        <!-- Alert Statistics -->
-                        <div class="alert-stats">
-                            <div class="alert-stat-card critical">
-                                <div class="alert-count" id="criticalAlertsCount">0</div>
-                                <div class="alert-label">Critical</div>
-                            </div>
-                            <div class="alert-stat-card warning">
-                                <div class="alert-count" id="warningAlertsCount">0</div>
-                                <div class="alert-label">Warning</div>
-                            </div>
-                            <div class="alert-stat-card info">
-                                <div class="alert-count" id="infoAlertsCount">0</div>
-                                <div class="alert-label">Info</div>
-                            </div>
-                        </div>
-
-                        <!-- Active Alerts -->
-                        <div class="alerts-container">
-                            <h3>Active Alerts</h3>
-                            <div id="activeAlertsList" class="alerts-list">
-                                <!-- Active alerts will be populated here -->
-                            </div>
-                        </div>
-
-                        <!-- Alert History -->
-                        <div class="alerts-container">
-                            <h3>Recent Alert History</h3>
-                            <div class="chart-controls">
-                                <label for="alertHistoryFilter">Filter:</label>
-                                <select id="alertHistoryFilter" onchange="updateAlertHistory()">
-                                    <option value="1">Last Hour</option>
-                                    <option value="6">Last 6 Hours</option>
-                                    <option value="24" selected>Last 24 Hours</option>
-                                    <option value="168">Last Week</option>
-                                </select>
-                            </div>
-                            <div id="alertHistoryList" class="alerts-list">
-                                <!-- Alert history will be populated here -->
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
         </div>
     </div>
 
@@ -447,43 +240,12 @@
         </div>
     </div>
 
-    <!-- Login Modal -->
-    <div id="loginModal" class="auth-modal">
-        <div class="auth-modal-content">
-            <button class="auth-close" onclick="closeLoginModal()">&times;</button>
-            <div class="auth-modal-header">
-                <h2 class="auth-modal-title">Login</h2>
-                <p class="auth-modal-subtitle">Enter your credentials to continue</p>
-            </div>
-            <div class="auth-modal-body">
-                <form id="loginForm" onsubmit="handleLogin(event)">
-                    <div class="form-group">
-                        <label class="form-label" for="username">Username</label>
-                        <input type="text" id="username" class="form-input" placeholder="Username" required>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label" for="password">Password</label>
-                        <input type="password" id="password" class="form-input" placeholder="Password" required>
-                    </div>
-                    <div class="remember-me">
-                        <input type="checkbox" id="rememberMe">
-                        <label for="rememberMe">Remember me</label>
-                    </div>
-                    <button type="submit" class="auth-submit-btn" id="loginBtn">
-                        Login
-                    </button>
-                    <div id="loginError" class="auth-error" style="display: none;"></div>
-                </form>
-            </div>
-        </div>
-    </div>
 
     <!-- External JavaScript -->
     <script src="{{ url_for('static', filename='js/utils.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/auth.js') }}"></script>
+</script>
     <script src="{{ url_for('static', filename='js/environment.js') }}"></script>
     <script src="{{ url_for('static', filename='js/file-explorer.js') }}"></script>
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/metrics.js') }}"></script>
 </body>
 </html>
