@@ -25,10 +25,12 @@ if __name__ == '__main__':
     except Exception as e:
         print(f"Warning: Could not setup signal handlers: {e}")
     
-    # Get configuration
-    host = os.environ.get('HOST', '127.0.0.1')
-    port = int(os.environ.get('PORT', 8080))
-    debug = os.environ.get('FLASK_ENV') == 'development'
+    # Get configuration from environment variables
+    from deployer.utils.env_config import get_server_config
+    server_config = get_server_config()
+    host = server_config['HOST']
+    port = server_config['PORT']
+    debug = server_config['DEBUG']
     
     print(f"Starting Deployer on http://{host}:{port}")
     print(f"Debug mode: {debug}")

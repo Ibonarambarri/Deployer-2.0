@@ -19,15 +19,13 @@ def get_projects():
         projects = project_service.get_all_projects()
         running_projects = process_service.get_running_projects()
         
-        # Update running status for each project
+        # Update running status for each project (without logs for performance)
         projects_data = []
         for project in projects:
             project_dict = project.to_dict()
             project_dict['running'] = project.name in running_projects
-            if project.name in running_projects:
-                # Get recent logs for running projects
-                logs = process_service.get_project_logs(project.name)
-                project_dict['recent_logs'] = [log.to_dict() for log in logs[-50:]]  # Last 50 logs
+            # Don't include logs in the main projects list to improve performance
+            # Logs can be fetched separately when needed
             projects_data.append(project_dict)
         
         return jsonify(projects_data)

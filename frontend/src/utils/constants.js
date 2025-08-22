@@ -38,14 +38,14 @@ export const SPACING = {
 
 // API endpoints
 export const API_ENDPOINTS = {
-  PROJECTS: '/api/projects',
-  SYSTEM: '/api/system',
+  PROJECTS: '/api/projects/',  // Add trailing slash to avoid redirects
+  SYSTEM: '/api/system/',
   WS_LOGS: '/ws/logs'
 }
 
 // Polling intervals
 export const INTERVALS = {
-  PROJECT_POLLING: 3000, // 3 seconds
+  PROJECT_POLLING: 30000, // 30 seconds - increased to debug infinite loop
   LOG_BUFFER_FLUSH: 100, // 100ms for log buffering
   RECONNECT_DELAY: 1000 // 1 second for WebSocket reconnection
 }

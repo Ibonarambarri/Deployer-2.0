@@ -8,17 +8,17 @@ from flask import Flask
 from flask_cors import CORS
 from flask_socketio import SocketIO
 
-from config import config
+from deployer.utils.env_config import get_app_config
 
 
 def create_app(config_name=None):
     """Create and configure Flask application."""
     
-    if config_name is None:
-        config_name = os.environ.get('FLASK_ENV', 'default')
-    
     app = Flask(__name__)
-    app.config.from_object(config[config_name])
+    
+    # Load configuration from environment variables
+    app_config = get_app_config()
+    app.config.update(app_config)
     
     # Ensure vault directory exists
     Path(app.config['VAULT_PATH']).mkdir(exist_ok=True)

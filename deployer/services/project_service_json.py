@@ -3,6 +3,7 @@
 import os
 import shutil
 import subprocess
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Any
@@ -26,6 +27,9 @@ class ProjectService:
     _instance: Optional['ProjectService'] = None
     _vault_path: Optional[Path] = None
     _security_context: Optional[SecurityContext] = None
+    _projects_cache: List[Project] = []
+    _cache_timestamp: Optional[float] = None
+    _cache_ttl: int = 30  # Cache TTL in seconds
     
     def __init__(self):
         if self._vault_path is None:
@@ -51,24 +55,96 @@ class ProjectService:
             raise ProjectServiceError("ProjectService not initialized")
         return cls._instance
     
+    def _invalidate_cache(self) -> None:
+        """Invalidate the projects cache."""
+        self._projects_cache.clear()
+        self._cache_timestamp = None
+    
     def get_all_projects(self) -> List[Project]:
-        """Get all projects."""
+        """Get all projects by scanning vault directory with caching."""
         try:
-            projects_data = self.project_storage.get_all_projects()
-            return [Project.from_dict(data) for data in projects_data.values()]
+            # Check if cache is valid
+            current_time = time.time()
+            if (self._cache_timestamp and 
+                current_time - self._cache_timestamp < self._cache_ttl and 
+                self._projects_cache):
+                return self._projects_cache.copy()
+            
+            projects = []
+            
+            # Scan vault directory for project folders
+            if not self.vault_path.exists():
+                return projects
+            
+            for item in self.vault_path.iterdir():
+                # Skip data directory and files
+                if item.name == 'data' or item.is_file():
+                    continue
+                    
+                if item.is_dir():
+                    try:
+                        project = self._create_project_from_directory(item)
+                        if project:
+                            projects.append(project)
+                    except Exception as e:
+                        logger.warning(f"Could not load project from {item.name}: {e}")
+                        continue
+            
+            # Update cache
+            self._projects_cache = projects.copy()
+            self._cache_timestamp = current_time
+            
+            return projects
         except Exception as e:
             logger.error(f"Error getting projects: {e}")
             return []
     
     def get_project(self, project_name: str) -> Optional[Project]:
-        """Get a specific project."""
+        """Get a specific project by scanning vault directory."""
         try:
-            project_data = self.project_storage.get_project(project_name)
-            if project_data:
-                return Project.from_dict(project_data)
+            project_path = self.vault_path / project_name
+            if project_path.exists() and project_path.is_dir():
+                return self._create_project_from_directory(project_path)
             return None
         except Exception as e:
             logger.error(f"Error getting project {project_name}: {e}")
+            return None
+    
+    def _create_project_from_directory(self, project_path: Path) -> Optional[Project]:
+        """Create a Project object from a directory."""
+        try:
+            project_name = project_path.name
+            
+            # Only try to get GitHub URL if really needed and cache it
+            github_url = "unknown"
+            if (project_path / '.git').exists():
+                # For performance, we could cache this or load it lazily
+                # For now, we'll keep it simple but add timeout and error handling
+                try:
+                    result = subprocess.run(
+                        ['git', 'config', '--get', 'remote.origin.url'],
+                        cwd=project_path,
+                        capture_output=True,
+                        text=True,
+                        timeout=5  # Add timeout to prevent hanging
+                    )
+                    if result.returncode == 0:
+                        github_url = result.stdout.strip()
+                except (subprocess.TimeoutExpired, subprocess.CalledProcessError, Exception):
+                    # Don't fail the whole operation if git command fails
+                    github_url = "git-repository"
+            
+            # Create project object
+            project = Project(
+                name=project_name,
+                path=str(project_path),
+                github_url=github_url
+            )
+            
+            return project
+            
+        except Exception as e:
+            logger.error(f"Error creating project from directory {project_path}: {e}")
             return None
     
     def create_project(self, github_url: str, project_name: Optional[str] = None) -> Project:
@@ -105,7 +181,7 @@ class ProjectService:
                     # Generate a unique name
                     counter = 1
                     original_name = project_name
-                    while project_path.exists() or self.project_storage.project_exists(project_name):
+                    while project_path.exists():
                         project_name = f"{original_name}-{counter}"
                         project_path = self.vault_path / project_name
                         counter += 1
@@ -117,20 +193,12 @@ class ProjectService:
                 # Clone repository normally
                 self._clone_repository(github_url, project_path)
             
-            # Final check if project is already registered (after potential name change)
-            if self.project_storage.project_exists(project_name):
-                raise ProjectServiceError(f"Project '{project_name}' already exists in storage")
-            
             # Create project object
             project = Project(
                 name=project_name,
                 path=str(project_path),
                 github_url=github_url
             )
-            
-            # Save to storage
-            if not self.project_storage.save_project(project_name, project.to_dict()):
-                raise ProjectServiceError("Failed to save project to storage")
             
             # Add creation log
             self.log_storage.add_log_entry(
@@ -141,6 +209,10 @@ class ProjectService:
             )
             
             logger.info(f"Project '{project_name}' created successfully")
+            
+            # Invalidate cache since we added a new project
+            self._invalidate_cache()
+            
             return project
             
         except subprocess.CalledProcessError as e:
@@ -153,31 +225,31 @@ class ProjectService:
     def delete_project(self, project_name: str) -> bool:
         """Delete a project."""
         try:
-            project = self.get_project(project_name)
-            if not project:
+            project_path = self.vault_path / project_name
+            if not project_path.exists():
                 raise ProjectServiceError(f"Project '{project_name}' not found")
             
             # Stop project if running
-            if project.running:
-                from deployer.services.process_service import ProcessService
-                try:
-                    process_service = ProcessService.get_instance()
+            from deployer.services.process_service import ProcessService
+            try:
+                process_service = ProcessService.get_instance()
+                if process_service.is_project_running(project_name):
                     process_service.stop_project(project_name)
-                except Exception as e:
-                    logger.warning(f"Could not stop running project: {e}")
+            except Exception as e:
+                logger.warning(f"Could not stop running project: {e}")
             
             # Remove project directory
-            project_path = Path(project.path)
             if project_path.exists():
                 shutil.rmtree(project_path)
-            
-            # Remove from storage
-            self.project_storage.delete_project(project_name)
             
             # Remove logs
             self.log_storage.delete_project_logs(project_name)
             
             logger.info(f"Project '{project_name}' deleted successfully")
+            
+            # Invalidate cache since we deleted a project
+            self._invalidate_cache()
+            
             return True
             
         except Exception as e:
@@ -186,20 +258,9 @@ class ProjectService:
     
     def update_project_status(self, project_name: str, running: bool, 
                             pid: Optional[int] = None, started_at: Optional[str] = None) -> bool:
-        """Update project running status."""
-        try:
-            project_data = self.project_storage.get_project(project_name)
-            if not project_data:
-                return False
-            
-            project = Project.from_dict(project_data)
-            project.update_status(running, pid, started_at)
-            
-            return self.project_storage.save_project(project_name, project.to_dict())
-            
-        except Exception as e:
-            logger.error(f"Error updating project status: {e}")
-            return False
+        """Update project running status (status is now managed by ProcessService)."""
+        # Status is now managed in memory by ProcessService, no need to persist
+        return True
     
     def create_venv(self, project_name: str) -> bool:
         """Create virtual environment for project."""

@@ -175,13 +175,13 @@ export const useProjects = () => {
     // Initial fetch
     fetchProjects();
 
-    // Set up polling interval
-    const interval = setInterval(() => {
-      fetchProjects(false); // Don't show loading for background updates
-    }, INTERVALS.PROJECT_POLLING);
+    // Temporarily disable polling to debug infinite loop
+    // const interval = setInterval(() => {
+    //   fetchProjects(false); // Don't show loading for background updates
+    // }, INTERVALS.PROJECT_POLLING);
 
-    return () => clearInterval(interval);
-  }, [fetchProjects]);
+    // return () => clearInterval(interval);
+  }, []); // Empty dependency array to avoid infinite loops
 
   return {
     projects,
